@@ -48,7 +48,6 @@ public class MainActivity extends Activity implements SensorEventListener {
 
         getWindow().setStatusBarColor(Color.rgb(5, 7, 16));
         getWindow().setNavigationBarColor(Color.rgb(5, 7, 16));
-        hideNavigationBar();
         ReminderScheduler.ensureChannel(this);
 
         webView = new WebView(this);
@@ -93,6 +92,7 @@ public class MainActivity extends Activity implements SensorEventListener {
 
         webView.addJavascriptInterface(new NativeBridge(), "VektorNative");
         setContentView(webView);
+        webView.post(this::hideNavigationBar);
         webView.loadUrl("file:///android_asset/index.html");
 
         initStepCounter();
@@ -103,14 +103,17 @@ public class MainActivity extends Activity implements SensorEventListener {
     }
 
     private void hideNavigationBar() {
+        View decor = getWindow().getDecorView();
+        if (decor == null) return;
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            WindowInsetsController controller = getWindow().getInsetsController();
+            WindowInsetsController controller = decor.getWindowInsetsController();
             if (controller != null) {
                 controller.hide(WindowInsets.Type.navigationBars());
                 controller.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
             }
         } else {
-            getWindow().getDecorView().setSystemUiVisibility(
+            decor.setSystemUiVisibility(
                     View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
                             | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
                             | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
