@@ -29,12 +29,12 @@ public class AppSmokeTest {
 
             CountDownLatch latch = new CountDownLatch(1);
             scenario.onActivity(activity -> activity.getWebViewForTesting().evaluateJavascript(
-                    "document.readyState + '|' + !!window.openAvatarPicker",
+                    "document.readyState + '|' + (!!window.rvOpenAvatarPicker || !!window.openAvatarPicker)",
                     value -> latch.countDown()));
             assertTrue("Web UI did not become ready", latch.await(10, TimeUnit.SECONDS));
 
             scenario.onActivity(activity -> activity.getWebViewForTesting().evaluateJavascript(
-                    "openAvatarPicker()", null));
+                    "(window.rvOpenAvatarPicker || window.openAvatarPicker)()", null));
 
             assertTrue("System image picker did not open",
                     device.wait(Until.gone(By.pkg(PACKAGE).depth(0)), 10_000)
