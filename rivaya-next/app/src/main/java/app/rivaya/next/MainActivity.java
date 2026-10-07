@@ -24,6 +24,8 @@ import android.webkit.WebChromeClient;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 
+import org.json.JSONObject;
+
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
@@ -31,6 +33,7 @@ import java.util.Locale;
 public class MainActivity extends Activity implements SensorEventListener {
     private static final int FILE_CHOOSER_REQUEST = 4201;
     private static final int ACTIVITY_RECOGNITION_REQUEST = 4202;
+    private static final int NOTIFICATION_REQUEST = 4203;
 
     private WebView webView;
     private ValueCallback<Uri[]> filePathCallback;
@@ -46,6 +49,7 @@ public class MainActivity extends Activity implements SensorEventListener {
         getWindow().setStatusBarColor(Color.rgb(5, 7, 16));
         getWindow().setNavigationBarColor(Color.rgb(5, 7, 16));
         hideNavigationBar();
+        ReminderScheduler.ensureChannel(this);
 
         webView = new WebView(this);
         webView.setBackgroundColor(Color.rgb(5, 7, 16));
@@ -73,31 +77,37 @@ public class MainActivity extends Activity implements SensorEventListener {
                 Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
                 intent.addCategory(Intent.CATEGORY_OPENABLE);
                 intent.setType("image/*");
+                intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
                 try {
                     startActivityForResult(intent, FILE_CHOOSER_REQUEST);
                     return true;
                 } catch (Exception e) {
-                    filePathCallback.onReceiveValue(null);
-                    filePathCallback = null;
+                    if (filePathCallback != null) {
+                        filePathCallback.onReceiveValue(null);
+                        filePathCallback = null;
+                    }
                     return false;
                 }
             }
         });
 
-        webView.addJavascriptInterface(new AndroidBridge(this), "Android");
+        webView.addJavascriptInterface(new NativeBridge(), "VektorNative");
         setContentView(webView);
         webView.loadUrl("file:///android_asset/index.html");
 
         initStepCounter();
     }
 
+    public WebView getWebViewForTesting() {
+        return webView;
+    }
+
     private void hideNavigationBar() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            final WindowInsetsController controller = getWindow().getInsetsController();
+            WindowInsetsController controller = getWindow().getInsetsController();
             if (controller != null) {
                 controller.hide(WindowInsets.Type.navigationBars());
-                controller.setSystemBarsBehavior(
-                        WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+                controller.setSystemBarsBehavior(WindowInsetsController.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
             }
         } else {
             getWindow().getDecorView().setSystemUiVisibility(
@@ -137,8 +147,7 @@ public class MainActivity extends Activity implements SensorEventListener {
 
     private boolean hasActivityPermission() {
         return Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
-                || checkSelfPermission(Manifest.permission.ACTIVITY_RECOGNITION)
-                == PackageManager.PERMISSION_GRANTED;
+                || checkSelfPermission(Manifest.permission.ACTIVITY_RECOGNITION) == PackageManager.PERMISSION_GRANTED;
     }
 
     private void registerStepSensorIfAllowed() {
@@ -149,13 +158,18 @@ public class MainActivity extends Activity implements SensorEventListener {
 
     private void requestActivityPermission() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
-                && checkSelfPermission(Manifest.permission.ACTIVITY_RECOGNITION)
-                != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(
-                    new String[]{Manifest.permission.ACTIVITY_RECOGNITION},
-                    ACTIVITY_RECOGNITION_REQUEST);
+                && checkSelfPermission(Manifest.permission.ACTIVITY_RECOGNITION) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{Manifest.permission.ACTIVITY_RECOGNITION}, ACTIVITY_RECOGNITION_REQUEST);
         } else {
             registerStepSensorIfAllowed();
+            pushStepsToWeb();
+        }
+    }
+
+    private void requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= 33
+                && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, NOTIFICATION_REQUEST);
         }
     }
 
@@ -164,6 +178,7 @@ public class MainActivity extends Activity implements SensorEventListener {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == ACTIVITY_RECOGNITION_REQUEST) {
             registerStepSensorIfAllowed();
+            pushStepsToWeb();
         }
     }
 
@@ -171,10 +186,10 @@ public class MainActivity extends Activity implements SensorEventListener {
     public void onSensorChanged(SensorEvent event) {
         if (event.sensor.getType() != Sensor.TYPE_STEP_COUNTER) return;
 
-        final float raw = event.values[0];
-        final String today = dayFormat.format(new Date());
-        final SharedPreferences prefs = getSharedPreferences("rivaya_steps", MODE_PRIVATE);
-        final String savedDay = prefs.getString("day", "");
+        float raw = event.values[0];
+        String today = dayFormat.format(new Date());
+        SharedPreferences prefs = getSharedPreferences("rivaya_steps", MODE_PRIVATE);
+        String savedDay = prefs.getString("day", "");
         float baseline = prefs.getFloat("baseline", -1f);
 
         if (!today.equals(savedDay) || baseline < 0f || raw < baseline) {
@@ -183,26 +198,42 @@ public class MainActivity extends Activity implements SensorEventListener {
         }
 
         stepsToday = Math.max(0, Math.round(raw - baseline));
+        pushStepsToWeb();
     }
 
     @Override
     public void onAccuracyChanged(Sensor sensor, int accuracy) {
     }
 
+    private void pushStepsToWeb() {
+        if (webView == null) return;
+        String status;
+        if (stepCounterSensor == null) status = "unsupported";
+        else if (!hasActivityPermission()) status = "denied";
+        else status = "granted";
+
+        try {
+            JSONObject payload = new JSONObject();
+            payload.put("status", status);
+            payload.put("steps", status.equals("granted") ? stepsToday : 0);
+            payload.put("history", new int[]{0, 0, 0, 0, 0, 0, status.equals("granted") ? stepsToday : 0});
+            String quoted = JSONObject.quote(payload.toString());
+            runOnUiThread(() -> webView.evaluateJavascript("window.vektorOnNativeSteps && window.vektorOnNativeSteps(" + quoted + ")", null));
+        } catch (Exception ignored) {
+        }
+    }
+
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (requestCode == FILE_CHOOSER_REQUEST) {
             Uri[] results = null;
-            if (resultCode == RESULT_OK && data != null) {
-                if (data.getClipData() != null) {
-                    int count = data.getClipData().getItemCount();
-                    results = new Uri[count];
-                    for (int i = 0; i < count; i++) {
-                        results[i] = data.getClipData().getItemAt(i).getUri();
-                    }
-                } else if (data.getData() != null) {
-                    results = new Uri[]{data.getData()};
+            if (resultCode == RESULT_OK && data != null && data.getData() != null) {
+                Uri uri = data.getData();
+                try {
+                    getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                } catch (Exception ignored) {
                 }
+                results = new Uri[]{uri};
             }
             if (filePathCallback != null) {
                 filePathCallback.onReceiveValue(results);
@@ -213,31 +244,52 @@ public class MainActivity extends Activity implements SensorEventListener {
         super.onActivityResult(requestCode, resultCode, data);
     }
 
-    public final class AndroidBridge {
-        private final Context context;
+    @Override
+    public void onBackPressed() {
+        if (webView != null && webView.canGoBack()) webView.goBack();
+        else super.onBackPressed();
+    }
 
-        AndroidBridge(Context context) {
-            this.context = context;
+    public final class NativeBridge {
+        @JavascriptInterface
+        public void refreshSteps() {
+            pushStepsToWeb();
         }
 
         @JavascriptInterface
-        public int getStepsToday() {
-            return stepsToday;
+        public void requestStepAccess() {
+            runOnUiThread(MainActivity.this::requestActivityPermission);
         }
 
         @JavascriptInterface
-        public boolean hasStepSensor() {
-            return stepCounterSensor != null;
+        public void openHealthSettings() {
+            runOnUiThread(() -> {
+                Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                        Uri.parse("package:" + getPackageName()));
+                startActivity(intent);
+            });
         }
 
         @JavascriptInterface
-        public boolean hasStepPermission() {
-            return hasActivityPermission();
+        public void requestNotificationPermission() {
+            runOnUiThread(MainActivity.this::requestNotificationPermission);
         }
 
         @JavascriptInterface
-        public void requestStepPermission() {
-            runOnUiThread(() -> requestActivityPermission());
+        public void configureReminders(boolean enabled,
+                                       int h1, int m1,
+                                       int h2, int m2,
+                                       int h3, int m3) {
+            ReminderScheduler.configure(MainActivity.this, enabled,
+                    new int[][]{{h1, m1}, {h2, m2}, {h3, m3}});
+        }
+
+        @JavascriptInterface
+        public void testNotification() {
+            runOnUiThread(() -> {
+                requestNotificationPermission();
+                ReminderScheduler.showNotification(MainActivity.this, "RIVAYA", "Пора сделать маленький шаг к своей цели ✦");
+            });
         }
 
         @JavascriptInterface
