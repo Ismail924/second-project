@@ -48,7 +48,7 @@ public class AppSmokeTest {
                 CountDownLatch done = new CountDownLatch(1);
                 boolean[] fits = {false};
                 scenario.onActivity(a -> a.getWebViewForTesting().evaluateJavascript(
-                    "document.querySelectorAll('.modal').forEach(m=>m.classList.remove('open'));document.body.style.minHeight='';currentView='"+view+"';render();window.scrollTo(0,0);document.documentElement.scrollWidth<=innerWidth",
+                    "state.profile.onboardingDone=true;document.querySelectorAll('.modal').forEach(m=>m.classList.remove('open'));document.body.style.minHeight='';currentView='"+view+"';render();window.scrollTo(0,0);document.documentElement.scrollWidth<=innerWidth",
                     value -> {fits[0]="true".equals(value);done.countDown();}));
                 assertTrue(view+" overflows viewport",done.await(10,TimeUnit.SECONDS)&&fits[0]);
                 Thread.sleep(1000);
