@@ -73,6 +73,12 @@ public class AppSmokeTest {
                     value -> { backupOk[0] = "true".equals(value); backupRoundtrip.countDown(); }));
             assertTrue("Backup roundtrip failed", backupRoundtrip.await(8, TimeUnit.SECONDS) && backupOk[0]);
 
+            CountDownLatch profileReturn = new CountDownLatch(1);
+            scenario.onActivity(activity -> activity.getWebViewForTesting().evaluateJavascript(
+                    "currentView='profile';render();!!document.querySelector('.rv-target-profile-stats')",
+                    value -> profileReturn.countDown()));
+            assertTrue("Could not return to Profile before geometry checks", profileReturn.await(8, TimeUnit.SECONDS));
+
             CountDownLatch statIcons = new CountDownLatch(1);
             final boolean[] statIconsOk = {false};
             scenario.onActivity(activity -> activity.getWebViewForTesting().evaluateJavascript(
