@@ -52,6 +52,13 @@ public class AppSmokeTest {
                     value -> { profileOk[0] = "true".equals(value); profile.countDown(); }));
             assertTrue("Profile screen did not render", profile.await(10, TimeUnit.SECONDS) && profileOk[0]);
 
+            CountDownLatch statIcons = new CountDownLatch(1);
+            final boolean[] statIconsOk = {false};
+            scenario.onActivity(activity -> activity.getWebViewForTesting().evaluateJavascript(
+                    "(()=>{const icons=[...document.querySelectorAll('.rv-profile-stats-neon .rv-stat-icon')];const old=document.querySelector('.rv-profile-stats-neon i.check');return icons.length===3&&!old&&icons.every(i=>{const r=i.getBoundingClientRect();return r.width>=22&&r.width<=26&&r.height>=22&&r.height<=26})})()",
+                    value -> { statIconsOk[0] = "true".equals(value); statIcons.countDown(); }));
+            assertTrue("Profile stat icons are inconsistent or colliding with global styles", statIcons.await(8, TimeUnit.SECONDS) && statIconsOk[0]);
+
             scenario.onActivity(activity -> activity.getWebViewForTesting().evaluateJavascript(
                     "(window.rvOpenAvatarPicker || window.openAvatarPicker)()", null));
 
