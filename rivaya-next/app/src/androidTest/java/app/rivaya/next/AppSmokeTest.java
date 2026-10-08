@@ -28,14 +28,18 @@ public class AppSmokeTest {
         Context c = InstrumentationRegistry.getInstrumentation().getTargetContext();
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             Thread.sleep(1800);
+            androidx.test.uiautomator.UiObject2 tutorial = device.findObject(androidx.test.uiautomator.By.text("Got it"));
+            if (tutorial != null) tutorial.click();
+            device.waitForIdle();
             for (String view : new String[]{"today","profile","plan","progress"}) {
                 CountDownLatch done = new CountDownLatch(1);
                 boolean[] fits = {false};
                 scenario.onActivity(a -> a.getWebViewForTesting().evaluateJavascript(
-                    "document.querySelectorAll('.modal').forEach(m=>m.classList.remove('open'));document.body.style.minHeight='';currentView='"+view+"';render();document.documentElement.scrollWidth<=innerWidth",
+                    "document.querySelectorAll('.modal').forEach(m=>m.classList.remove('open'));document.body.style.minHeight='';currentView='"+view+"';render();window.scrollTo(0,0);document.documentElement.scrollWidth<=innerWidth",
                     value -> {fits[0]="true".equals(value);done.countDown();}));
                 assertTrue(view+" overflows viewport",done.await(10,TimeUnit.SECONDS)&&fits[0]);
-                Thread.sleep(350);
+                Thread.sleep(1000);
+                device.waitForIdle();
                 device.executeShellCommand("mkdir -p /sdcard/Download/rivaya-previews");
                 device.executeShellCommand("screencap -p /sdcard/Download/rivaya-previews/"+view+".png");
             }

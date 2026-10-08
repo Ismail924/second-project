@@ -1396,7 +1396,7 @@ renderProfile=function(){
     </div>
 
     <section class="rv-target-profile-footer">
-      <div class="rv-target-footer-copy"><b>RIVAYA 4.0 RC1</b><span>Цели · привычки · реальные шаги · прогресс</span></div>
+      <div class="rv-target-footer-copy"><b>RIVAYA 4.0.1 RC2</b><span>Цели · привычки · реальные шаги · прогресс</span></div>
       <div class="rv-target-author">
         <span>Автор</span>
         <button class="rv-target-instagram" data-external="https://www.instagram.com/_isma_guder_/">

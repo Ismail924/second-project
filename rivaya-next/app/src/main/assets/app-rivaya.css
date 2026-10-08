@@ -549,3 +549,5 @@ html,body{
 .rv-plan-target button:focus-visible,.rv-progress-target button:focus-visible,.rv-plan-goal-card:focus-visible{outline:2px solid #55d7ff;outline-offset:3px}
 @media(max-width:360px){.rv-progress-hero{grid-template-columns:1fr;justify-items:center}.rv-progress-hero-copy{text-align:center;width:100%}.rv-progress-metric-grid section{padding:8px}.rv-plan-goal-grid{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){.rv-plan-goal-card,.rv-progress-bar-track i{transition:none}}
+
+.rv-plan-goal-grid > .rv-plan-empty-action{grid-column:1/-1}
