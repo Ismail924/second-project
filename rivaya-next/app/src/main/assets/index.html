@@ -195,7 +195,7 @@
         <label class="reminder-toggle-row"><span><b>Тихий режим</b><small>Не беспокоить ночью</small></span><input id="quietEnabled" type="checkbox" checked /></label>
         <div class="reminder-times"><label>С<input id="quietStart" type="time" value="23:00" /></label><label>До<input id="quietEnd" type="time" value="08:00" /></label></div>
       </div>
-      <p class="fineprint" style="text-align:left">RIVAYA объединяет общие и персональные времена в системное расписание. В этой тестовой Android-сборке одновременно используются до 3 уникальных времён, а текст системного уведомления пока общий.</p>
+      <p class="fineprint" style="text-align:left">Общие напоминания, привычки и цели работают независимо. Для привычки или цели можно задать своё время; тихий режим блокирует уведомления в выбранный ночной интервал.</p>
       <button class="primary full" id="saveRemindersBtn">Сохранить время</button>
       <button class="secondary full" id="testReminderBtn" style="margin-top:10px">Тест уведомления</button>
     </section>
@@ -206,10 +206,11 @@
     <div class="modal-backdrop" data-close="backupModal"></div>
     <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="backupTitle">
       <div class="modal-head"><div><h2 id="backupTitle">Резервная копия</h2><p class="modal-subtitle">Сохрани все цели, привычки, отметки и настройки одним текстом.</p></div><button class="close-btn" data-close="backupModal">×</button></div>
-      <textarea id="backupTextarea" class="backup-textarea" placeholder="Нажмите «Подготовить копию» или вставьте сюда сохранённую копию для восстановления."></textarea>
-      <div class="backup-actions"><button class="secondary" id="prepareBackupBtn">Подготовить копию</button><button class="primary" id="copyBackupBtn">Скопировать</button></div>
+      <div class="backup-file-actions"><button class="primary" id="saveBackupFileBtn">Сохранить файл</button><button class="secondary" id="loadBackupFileBtn">Выбрать файл и восстановить</button></div>
+      <textarea id="backupTextarea" class="backup-textarea" placeholder="Дополнительно: можно скопировать резервную копию как текст или вставить её сюда для восстановления."></textarea>
+      <div class="backup-actions"><button class="secondary" id="prepareBackupBtn">Показать текст</button><button class="secondary" id="copyBackupBtn">Скопировать текст</button></div>
       <button class="ghost full" id="restoreBackupBtn" style="margin-top:10px">Восстановить из вставленного текста</button>
-      <p class="fineprint" style="text-align:left">Храни копию в безопасном месте. RIVAYA не отправляет её автоматически в облако.</p>
+      <p class="fineprint" style="text-align:left">Файл содержит цели, привычки, историю, фото профиля и настройки. Его можно сохранить перед сменой телефона и восстановить на новом устройстве.</p>
     </section>
   </div>
 

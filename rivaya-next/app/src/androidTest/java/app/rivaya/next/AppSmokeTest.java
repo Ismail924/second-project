@@ -59,6 +59,20 @@ public class AppSmokeTest {
                     value -> { targetUiOk[0] = "true".equals(value); targetUi.countDown(); }));
             assertTrue("Reference-matched Profile UI did not render", targetUi.await(8, TimeUnit.SECONDS) && targetUiOk[0]);
 
+            CountDownLatch releaseUi = new CountDownLatch(1);
+            final boolean[] releaseUiOk = {false};
+            scenario.onActivity(activity -> activity.getWebViewForTesting().evaluateJavascript(
+                    "currentView='plan';render();const p=!!document.querySelector('.rv-plan-target')&&!!document.querySelector('.rv-plan-overview');currentView='progress';render();const g=!!document.querySelector('.rv-progress-target')&&document.querySelectorAll('[data-stats-period]').length===3;const bridge=typeof VektorNative.configureItemReminders==='function'&&typeof VektorNative.exportBackupFile==='function'&&typeof VektorNative.importBackupFile==='function';p&&g&&bridge",
+                    value -> { releaseUiOk[0] = "true".equals(value); releaseUi.countDown(); }));
+            assertTrue("Plan/Progress or native release features are missing", releaseUi.await(8, TimeUnit.SECONDS) && releaseUiOk[0]);
+
+            CountDownLatch backupRoundtrip = new CountDownLatch(1);
+            final boolean[] backupOk = {false};
+            scenario.onActivity(activity -> activity.getWebViewForTesting().evaluateJavascript(
+                    "(()=>{try{const t=backupText();const before=state.habits.length+'|'+state.goals.length;restoreBackupText(t);return before===(state.habits.length+'|'+state.goals.length)}catch(e){return false}})()",
+                    value -> { backupOk[0] = "true".equals(value); backupRoundtrip.countDown(); }));
+            assertTrue("Backup roundtrip failed", backupRoundtrip.await(8, TimeUnit.SECONDS) && backupOk[0]);
+
             CountDownLatch statIcons = new CountDownLatch(1);
             final boolean[] statIconsOk = {false};
             scenario.onActivity(activity -> activity.getWebViewForTesting().evaluateJavascript(

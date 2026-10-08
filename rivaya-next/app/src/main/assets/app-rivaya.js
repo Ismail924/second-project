@@ -156,7 +156,7 @@ function recordDailySnapshots(){
     Object.keys(state.goalSnapshots).forEach(d=>{if(d<cut)delete state.goalSnapshots[d]});
   }catch{}
 }
-function save(){recordDailySnapshots();localStorage.setItem(STORAGE_KEY,JSON.stringify(state))}
+function save(){recordDailySnapshots();localStorage.setItem(STORAGE_KEY,JSON.stringify(state));setTimeout(()=>syncSmartReminders(false),0)}
 function activityConnected(){return state.activity.access==='granted'}
 function healthSource(){
   const ua=navigator.userAgent||'';
@@ -518,21 +518,50 @@ function timeInQuiet(t){
   const x=minutesOf(t),a=minutesOf(state.reminders.quietStart||'23:00'),b=minutesOf(state.reminders.quietEnd||'08:00');
   return a===b?false:(a<b?(x>=a&&x<b):(x>=a||x<b));
 }
-function collectSmartReminderTimes(){
-  let times=[];
-  if(state.reminders?.enabled)times.push(...(state.reminders.times||[]));
-  (state.habits||[]).forEach(h=>{if(h.reminderEnabled&&h.reminderTime)times.push(h.reminderTime)});
-  (state.goals||[]).forEach(g=>{if(g.reminderEnabled&&g.reminderTime&&!goalIsComplete(g))times.push(g.reminderTime)});
-  return [...new Set(times.filter(Boolean))].filter(t=>!timeInQuiet(t)).sort().slice(0,3);
+function collectSmartReminderItems(){
+  const items=[];
+  if(state.reminders?.enabled){
+    (state.reminders.times||[]).filter(Boolean).forEach((time,i)=>{
+      if(!timeInQuiet(time))items.push({id:'general-'+i,title:'RIVAYA',body:'Пора сделать маленький шаг к своей цели ✦',time,weekdaysOnly:false});
+    });
+  }
+  (state.habits||[]).forEach(h=>{
+    if(!h.reminderEnabled||!h.reminderTime||timeInQuiet(h.reminderTime))return;
+    const ended=habitEndDate(h);if(ended&&ended<startOfDay(new Date()))return;
+    items.push({id:'habit-'+h.id,title:'Привычка: '+h.name,body:'Пора выполнить привычку и сохранить серию.',time:h.reminderTime,weekdaysOnly:habitMode(h)==='weekdays'});
+  });
+  (state.goals||[]).forEach(g=>{
+    if(!g.reminderEnabled||!g.reminderTime||goalIsComplete(g)||timeInQuiet(g.reminderTime))return;
+    items.push({id:'goal-'+g.id,title:'Цель: '+g.name,body:'Сделай следующий небольшой шаг к этой цели.',time:g.reminderTime,weekdaysOnly:false});
+  });
+  const seen=new Set();
+  return items.filter(x=>{const k=x.id+'@'+x.time;if(seen.has(k))return false;seen.add(k);return true});
 }
+function collectSmartReminderTimes(){
+  return [...new Set(collectSmartReminderItems().map(x=>x.time))].sort();
+}
+let rvLastReminderFingerprint='';
 function syncSmartReminders(ask=false){
-  const times=collectSmartReminderTimes();
+  const items=collectSmartReminderItems();
+  const payload=JSON.stringify(items);
+  try{
+    if(window.VektorNative && typeof VektorNative.configureItemReminders==='function'){
+      if(ask && typeof VektorNative.requestNotificationPermission==='function')VektorNative.requestNotificationPermission();
+      if(!ask && payload===rvLastReminderFingerprint)return true;
+      VektorNative.configureItemReminders(payload);
+      rvLastReminderFingerprint=payload;
+      return true;
+    }
+  }catch(e){}
+  const times=collectSmartReminderTimes().slice(0,3);
   return nativeReminderConfigure(times.length>0,times,ask);
 }
 function smartReminderSummary(){
-  const times=collectSmartReminderTimes();
+  const items=collectSmartReminderItems();
+  const times=[...new Set(items.map(x=>x.time))].sort();
   const q=state.reminders?.quietEnabled?` · тихо ${state.reminders.quietStart}–${state.reminders.quietEnd}`:'';
-  return times.length?`${times.join(' · ')}${q}`:`Нет активных времён${q}`;
+  if(!items.length)return `Нет активных напоминаний${q}`;
+  return `${items.length} активн. · ${times.join(' · ')}${q}`;
 }
 function weeklySummary(){
   const now=startOfDay(new Date());let done=0,target=0;
@@ -990,6 +1019,10 @@ document.getElementById('copyBackupBtn')?.addEventListener('click',async()=>{
   try{await navigator.clipboard.writeText(box.value);toast('Резервная копия скопирована')}catch{box.select();document.execCommand('copy');toast('Текст резервной копии выделен')}
 });
 document.getElementById('prepareBackupBtn')?.addEventListener('click',()=>{document.getElementById('backupTextarea').value=backupText();toast('Резервная копия подготовлена')});
+window.rivayaOnBackupExport=function(ok){toast(ok?'Резервная копия сохранена ✓':'Не удалось сохранить копию')};
+window.rivayaOnBackupImport=function(text){try{restoreBackupText(String(text||''));closeModal('backupModal');syncSmartReminders(true);render();toast('Данные восстановлены ✓')}catch(e){toast('Не удалось восстановить: неверный файл')}};
+document.getElementById('saveBackupFileBtn')?.addEventListener('click',()=>{try{if(window.VektorNative&&typeof VektorNative.exportBackupFile==='function'){VektorNative.exportBackupFile(backupText());return}}catch(e){}exportData()});
+document.getElementById('loadBackupFileBtn')?.addEventListener('click',()=>{try{if(window.VektorNative&&typeof VektorNative.importBackupFile==='function'){VektorNative.importBackupFile();return}}catch(e){}const input=document.createElement('input');input.type='file';input.accept='.json,application/json,text/plain';input.onchange=async()=>{const file=input.files&&input.files[0];if(!file)return;try{window.rivayaOnBackupImport(await file.text())}catch(e){toast('Не удалось прочитать файл')}};input.click()});
 document.getElementById('restoreBackupBtn')?.addEventListener('click',()=>{
   const text=document.getElementById('backupTextarea').value.trim();if(!text){toast('Вставьте текст резервной копии');return}
   try{restoreBackupText(text);closeModal('backupModal');syncSmartReminders(true);render();toast('Данные восстановлены ✓')}catch{toast('Не удалось восстановить: неверный формат')}
@@ -1232,13 +1265,24 @@ function rvPlanGoal(g){
   const linked=linkedHabitsForGoal(g.id);return `<div class="rv-goal-card2" data-nav="goals"><div class="head"><div><h3>${esc(g.name)}</h3><p>${daysLeft(g.deadline)}${linked.length?` · ${linked.length} связ. привыч.`:''}</p></div><div class="pct">${goalPct(g)}%</div></div><div class="rv-mini-progress"><i style="width:${goalPct(g)}%"></i></div>${linked.length?`<div class="rv-linked">Связаны: ${linked.slice(0,2).map(h=>esc(h.name)).join(' · ')}${linked.length>2?' · …':''}</div>`:''}</div>`;
 }
 function renderPlan(){
-  const activeGoals=state.goals.filter(g=>!goalIsComplete(g));const activeHabits=state.habits.filter(h=>habitExistsOnDate(h,new Date()));
-  return `<div class="rv-screen">
-    <div class="rv-title-row"><div><h1>План</h1><div class="rv-date">Привычки, которые ведут к большим целям</div></div></div>
-    <div class="rv-plan-tabs"><button class="active" data-nav="habits">Привычки</button><button data-nav="goals">Цели</button></div>
-    <div class="rv-plan-add"><div class="rv-plus">+</div><div><b>Быстрое добавление</b><small>Создай привычку или цель за несколько секунд</small></div><button data-open="habitModal">›</button></div>
-    <section class="rv-section"><div class="rv-section-head"><h2>Активные цели</h2><button data-nav="goals">Все цели ›</button></div>${activeGoals.length?activeGoals.slice(0,3).map(rvPlanGoal).join(''):`<div class="rv-empty">Целей пока нет. Создай одну конкретную цель и привяжи к ней ежедневное действие.</div>`}<div class="rv-plan-actions"><button data-open="goalModal" class="primary2">+ Новая цель</button><button data-nav="goals">Управлять</button></div></section>
-    <section class="rv-section"><div class="rv-section-head"><h2>Связанные с целями привычки</h2><button data-nav="habits">Все ›</button></div><div class="rv-habits">${activeHabits.length?activeHabits.slice(0,7).map(rvPlanHabit).join(''):`<div class="rv-empty">Добавь первую привычку. При создании можно сразу связать её с целью.</div>`}</div><div class="rv-plan-actions"><button data-open="habitModal" class="primary2">+ Новая привычка</button><button data-nav="habits">Управлять</button></div></section>
+  const activeGoals=state.goals.filter(g=>!goalIsComplete(g));
+  const activeHabits=state.habits.filter(h=>habitExistsOnDate(h,new Date()));
+  const today=scheduledHabitsToday(),done=completedToday();
+  const linkedCount=activeHabits.filter(h=>linkedGoal(h)).length;
+  const goalCards=activeGoals.slice(0,4).map(g=>{
+    const linked=linkedHabitsForGoal(g.id);
+    return `<article class="rv-plan-goal-card" data-nav="goals"><div class="rv-plan-goal-top"><div class="rv-plan-goal-icon">${rvUiIcon('target')}</div><span>${daysLeft(g.deadline)}</span><b>${goalPct(g)}%</b></div><h3>${esc(g.name)}</h3><p>${linked.length?`${linked.length} связанных привычек`:'Добавь привычку, которая двигает эту цель'}</p><div class="rv-plan-progress"><i style="width:${goalPct(g)}%"></i></div></article>`;
+  }).join('');
+  const habitCards=activeHabits.slice(0,6).map(h=>{
+    const st=habitLifetimeStats(h),goal=linkedGoal(h),scheduled=habitScheduledOnDate(h,new Date()),isDone=scheduled&&doneToday(h.id);
+    return `<div class="rv-plan-habit-row ${isDone?'done':''}"><button class="rv-plan-check" ${scheduled?`data-check="${h.id}"`:''}>${isDone?'✓':''}</button><div class="rv-plan-habit-icon">${rvUiIcon('check')}</div><div class="rv-plan-habit-copy"><b>${esc(h.name)}</b><span>${esc(h.freq)}${goal?` · → ${esc(goal.name)}`:''}${h.reminderEnabled&&h.reminderTime?` · ${esc(h.reminderTime)}`:''}</span><div class="rv-plan-progress"><i style="width:${st.p}%"></i></div></div><button class="rv-plan-edit" data-edit-habit="${h.id}">›</button></div>`;
+  }).join('');
+  return `<div class="rv-screen rv-plan-target">
+    <div class="rv-target-title-row"><div><h1>План</h1><div class="rv-target-date">Цели и привычки в одном маршруте</div></div><button class="rv-plan-main-add" data-open="habitModal">＋</button></div>
+    <section class="rv-plan-overview"><div><span>СЕГОДНЯ</span><b>${done}/${today.length}</b><small>привычек выполнено</small></div><div><span>ЦЕЛИ</span><b>${activeGoals.length}</b><small>сейчас в работе</small></div><div><span>СВЯЗИ</span><b>${linkedCount}</b><small>привычек ведут к целям</small></div></section>
+    <section class="rv-plan-quick"><div class="rv-plan-quick-icon">✦</div><div><span>БЫСТРЫЙ СТАРТ</span><b>Что хочешь добавить?</b><p>Привычка — повторяемое действие. Цель — результат, к которому идёшь.</p></div><div class="rv-plan-quick-actions"><button data-open="habitModal">+ Привычка</button><button data-open="goalModal">+ Цель</button></div></section>
+    <section class="rv-plan-section"><div class="rv-target-section-head"><div><span>НАПРАВЛЕНИЕ</span><h2>Активные цели</h2></div><button data-nav="goals">Все ›</button></div><div class="rv-plan-goal-grid">${goalCards||`<button class="rv-plan-empty-action" data-open="goalModal"><span>${rvUiIcon('target')}</span><b>Создай первую цель</b><small>Разбей её на понятные этапы и ежедневные действия.</small></button>`}</div></section>
+    <section class="rv-plan-section"><div class="rv-target-section-head"><div><span>ДЕЙСТВИЯ</span><h2>Привычки</h2></div><button data-nav="habits">Все ›</button></div><div class="rv-plan-habits">${habitCards||`<button class="rv-plan-empty-action" data-open="habitModal"><span>${rvUiIcon('list')}</span><b>Добавь первую привычку</b><small>Начни с одного действия, которое реально повторять.</small></button>`}</div></section>
   </div>`;
 }
 
@@ -1246,22 +1290,22 @@ function rvDayScore(d){
   const planned=state.habits.filter(h=>habitScheduledOnDate(h,d)).length;const done=completionsOnDate(d);return {planned,done,p:planned?Math.round(done/planned*100):0};
 }
 function renderProgress(){
-  const periods={week:{days:7,label:'за 7 дней'},month:{days:30,label:'за 30 дней'},year:{days:365,label:'за 12 месяцев'}};const period=periods[currentStatsPeriod]||periods.week;
-  const vals=state.habits.map(h=>habitDisplayStats(h,period.days));const done=vals.reduce((a,v)=>a+v.done,0);const target=vals.reduce((a,v)=>a+v.target,0);const overall=target?Math.round(done/target*100):0;
-  const series=completionSeries(currentStatsPeriod);const max=Math.max(1,...series);const labels=currentStatsPeriod==='week'?['Пн','Вт','Ср','Чт','Пт','Сб','Вс']:series.map((_,i)=>currentStatsPeriod==='year'?String(i+1):String(i+1));
-  const bars=series.map((v,i)=>`<div class="rv-chart-col"><div class="rv-chart-bar" style="height:${v?Math.max(8,Math.round(v/max*100)):3}%"></div><small>${labels[i]||''}</small></div>`).join('');
-  const goalActive=state.goals.filter(g=>!goalIsComplete(g));const goalAvg=goalActive.length?Math.round(goalActive.reduce((s,g)=>s+goalPct(g),0)/goalActive.length):0;const streak=rvDaysWithActivityStreak();const w=weeklySummary();
-  const now=startOfDay(new Date());let cal='';for(let i=27;i>=0;i--){const d=new Date(now);d.setDate(now.getDate()-i);const s=rvDayScore(d);const cls=s.planned===0?'':(s.p===100?'perfect':s.done>0?'partial':'missed');cal+=`<div class="rv-cal-day ${cls} ${dateKey(d)===todayKey()?'today':''}" title="${s.done}/${s.planned}">${d.getDate()}</div>`}
-  const habitAvg=state.habits.length?Math.round(state.habits.reduce((sum,h)=>sum+habitDisplayStats(h,period.days).p,0)/state.habits.length):0;
-  return `<div class="rv-screen">
-    <div class="rv-title-row"><div><h1>Прогресс</h1><div class="rv-date">Только реальные отметки и реальные шаги</div></div></div>
-    <div class="rv-period-tabs">${['week','month','year'].map(k=>`<button class="${currentStatsPeriod===k?'active':''}" data-stats-period="${k}">${{week:'Неделя',month:'Месяц',year:'Год'}[k]}</button>`).join('')}</div>
-    <section class="rv-progress-summary"><div class="rv-ring" style="--p:${overall}"><div><strong>${overall}%</strong><span>выполнено</span></div></div><div><h2>${target?'Твой реальный прогресс':'Статистика начнётся после первых отметок'}</h2><p>${target?`${done} из ${target} запланированных выполнений ${period.label}`:'Никаких случайных процентов — только твои данные.'}</p><div class="rv-kpis"><div class="rv-kpi"><b>${streak} дн.</b><span>текущая серия</span></div><div class="rv-kpi"><b>${goalAvg}%</b><span>средний прогресс целей</span></div></div></div></section>
-    <section class="rv-section"><div class="rv-section-head"><h2>Динамика выполнения</h2><button data-nav="stats">Подробнее ›</button></div><div class="rv-chart-wrap">${bars}</div></section>
-    <section class="rv-section"><div class="rv-section-head"><h2>Привычки и цели</h2><button data-nav="stats">Аналитика ›</button></div><div class="rv-metric-row"><div class="rv-metric-icon">✓</div><div class="rv-metric-copy"><b>Привычки</b><span>${state.habits.length} активных · ${period.label}</span><div class="rv-mini-progress"><i style="width:${habitAvg}%"></i></div></div><div class="rv-metric-value">${habitAvg}%</div></div><div class="rv-metric-row"><div class="rv-metric-icon">⚑</div><div class="rv-metric-copy"><b>Цели</b><span>${goalActive.length} в работе</span><div class="rv-mini-progress"><i style="width:${goalAvg}%"></i></div></div><div class="rv-metric-value">${goalAvg}%</div></div><div class="rv-metric-row" data-nav="activity"><div class="rv-metric-icon">⌁</div><div class="rv-metric-copy"><b>Шаги</b><span>${activityConnected()?`${fmtNum(state.activity.steps)} сегодня · ${fmtNum(w.steps)} за сохранённые дни недели`:'Доступ к шагам не включён'}</span></div><div class="rv-metric-value">${activityConnected()?stepPct()+'%':'→'}</div></div></section>
-    <section class="rv-section"><div class="rv-section-head"><h2>Календарь активности</h2><button data-nav="calendar">Открыть ›</button></div><div class="rv-calendar-grid">${cal}</div></section>
+  const periods={week:{days:7,label:'за 7 дней'},month:{days:30,label:'за 30 дней'},year:{days:365,label:'за 12 месяцев'}},period=periods[currentStatsPeriod]||periods.month;
+  const vals=state.habits.map(h=>habitDisplayStats(h,period.days)),done=vals.reduce((a,v)=>a+v.done,0),target=vals.reduce((a,v)=>a+v.target,0),overall=target?Math.round(done/target*100):0;
+  const series=completionSeries(currentStatsPeriod),max=Math.max(1,...series),labels=currentStatsPeriod==='week'?['Пн','Вт','Ср','Чт','Пт','Сб','Вс']:series.map((_,i)=>String(i+1));
+  const bars=series.map((v,i)=>`<div class="rv-progress-bar-col"><div class="rv-progress-bar-track"><i style="height:${v?Math.max(8,Math.round(v/max*100)):3}%"></i></div><small>${labels[i]||''}</small></div>`).join('');
+  const activeGoals=state.goals.filter(g=>!goalIsComplete(g)),goalAvg=activeGoals.length?Math.round(activeGoals.reduce((s,g)=>s+goalPct(g),0)/activeGoals.length):0,habitAvg=state.habits.length?Math.round(state.habits.reduce((s,h)=>s+habitDisplayStats(h,period.days).p,0)/state.habits.length):0,streak=rvDaysWithActivityStreak(),w=weeklySummary();
+  const now=startOfDay(new Date());let cal='';for(let i=27;i>=0;i--){const d=new Date(now);d.setDate(now.getDate()-i);const s=rvDayScore(d);const cls=s.planned===0?'':(s.p===100?'perfect':s.done>0?'partial':'missed');cal+=`<div class="rv-progress-day ${cls} ${dateKey(d)===todayKey()?'today':''}"><span>${d.getDate()}</span></div>`}
+  return `<div class="rv-screen rv-progress-target">
+    <div class="rv-target-title-row"><div><h1>Прогресс</h1><div class="rv-target-date">Только твои реальные действия</div></div></div>
+    <div class="rv-progress-periods">${['week','month','year'].map(k=>`<button class="${currentStatsPeriod===k?'active':''}" data-stats-period="${k}">${{week:'Неделя',month:'Месяц',year:'Год'}[k]}</button>`).join('')}</div>
+    <section class="rv-progress-hero"><div class="rv-progress-ring" style="--p:${overall}"><div><strong>${overall}%</strong><span>выполнено</span></div></div><div class="rv-progress-hero-copy"><span>ОБЩИЙ РЕЗУЛЬТАТ</span><h2>${target?'Ты движешься вперёд':'Здесь появится твой прогресс'}</h2><p>${target?`${done} из ${target} выполнений ${period.label}`:'Сделай первые отметки — никаких выдуманных процентов.'}</p><div class="rv-progress-kpis"><div><b>${streak}</b><small>дн. серия</small></div><div><b>${goalAvg}%</b><small>цели</small></div><div><b>${activityConnected()?fmtNum(state.activity.steps):'—'}</b><small>шагов сегодня</small></div></div></div></section>
+    <section class="rv-progress-card"><div class="rv-target-section-head"><div><span>ДИНАМИКА</span><h2>Выполнения</h2></div><button data-nav="stats">Подробнее ›</button></div><div class="rv-progress-chart">${bars}</div></section>
+    <div class="rv-progress-metric-grid"><section><div class="icon habit">${rvUiIcon('check')}</div><span>Привычки</span><b>${habitAvg}%</b><small>${state.habits.length} активных</small><div class="rv-plan-progress"><i style="width:${habitAvg}%"></i></div></section><section><div class="icon goal">${rvUiIcon('target')}</div><span>Цели</span><b>${goalAvg}%</b><small>${activeGoals.length} в работе</small><div class="rv-plan-progress"><i style="width:${goalAvg}%"></i></div></section><section data-nav="activity"><div class="icon steps">${rvUiIcon('steps')}</div><span>Шаги</span><b>${activityConnected()?stepPct()+'%':'—'}</b><small>${activityConnected()?`${fmtNum(w.steps)} за неделю`:'Подключить'}</small><div class="rv-plan-progress"><i style="width:${activityConnected()?stepPct():0}%"></i></div></section></div>
+    <section class="rv-progress-card"><div class="rv-target-section-head"><div><span>ПОСЛЕДНИЕ 4 НЕДЕЛИ</span><h2>Календарь активности</h2></div><button data-nav="calendar">Открыть ›</button></div><div class="rv-progress-calendar">${cal}</div><div class="rv-progress-legend"><span><i class="perfect"></i>Выполнено</span><span><i class="partial"></i>Частично</span><span><i class="missed"></i>Пропуск</span></div></section>
   </div>`;
 }
+
 
 renderProfile=function(){
   const name=state.profile?.name||'Пользователь';
@@ -1326,7 +1370,7 @@ renderProfile=function(){
     </div>
 
     <section class="rv-target-profile-footer">
-      <div class="rv-target-footer-copy"><b>RIVAYA 3.3</b><span>Цели · привычки · реальные шаги · прогресс</span></div>
+      <div class="rv-target-footer-copy"><b>RIVAYA 4.0 RC1</b><span>Цели · привычки · реальные шаги · прогресс</span></div>
       <div class="rv-target-author">
         <span>Автор</span>
         <button class="rv-target-instagram" data-external="https://www.instagram.com/_isma_guder_/">

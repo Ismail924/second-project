@@ -26,6 +26,10 @@ import android.webkit.WebViewClient;
 
 import org.json.JSONObject;
 
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
@@ -34,12 +38,15 @@ public class MainActivity extends Activity implements SensorEventListener {
     private static final int FILE_CHOOSER_REQUEST = 4201;
     private static final int ACTIVITY_RECOGNITION_REQUEST = 4202;
     private static final int NOTIFICATION_REQUEST = 4203;
+    private static final int BACKUP_CREATE_REQUEST = 4301;
+    private static final int BACKUP_OPEN_REQUEST = 4302;
 
     private WebView webView;
     private ValueCallback<Uri[]> filePathCallback;
     private SensorManager sensorManager;
     private Sensor stepCounterSensor;
     private volatile int stepsToday = 0;
+    private String pendingBackupJson = null;
     private final SimpleDateFormat dayFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
 
     @Override
@@ -228,6 +235,31 @@ public class MainActivity extends Activity implements SensorEventListener {
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == BACKUP_CREATE_REQUEST) {
+            boolean ok = false;
+            if (resultCode == RESULT_OK && data != null && data.getData() != null && pendingBackupJson != null) {
+                try (OutputStream out = getContentResolver().openOutputStream(data.getData(), "w")) {
+                    if (out != null) { out.write(pendingBackupJson.getBytes(StandardCharsets.UTF_8)); out.flush(); ok = true; }
+                } catch (Exception ignored) {}
+            }
+            pendingBackupJson = null;
+            final boolean result = ok;
+            if (webView != null) webView.post(() -> webView.evaluateJavascript("window.rivayaOnBackupExport && window.rivayaOnBackupExport(" + result + ")", null));
+            return;
+        }
+        if (requestCode == BACKUP_OPEN_REQUEST) {
+            if (resultCode == RESULT_OK && data != null && data.getData() != null) {
+                try (InputStream in = getContentResolver().openInputStream(data.getData())) {
+                    if (in != null) {
+                        ByteArrayOutputStream out = new ByteArrayOutputStream(); byte[] buffer = new byte[8192]; int read,total=0;
+                        while ((read = in.read(buffer)) != -1) { total += read; if (total > 8*1024*1024) throw new IllegalStateException("Backup too large"); out.write(buffer,0,read); }
+                        String quoted = JSONObject.quote(out.toString(StandardCharsets.UTF_8.name()));
+                        if (webView != null) webView.post(() -> webView.evaluateJavascript("window.rivayaOnBackupImport && window.rivayaOnBackupImport(" + quoted + ")", null));
+                    }
+                } catch (Exception ignored) { if (webView != null) webView.post(() -> webView.evaluateJavascript("window.rivayaOnBackupImport && window.rivayaOnBackupImport('')", null)); }
+            }
+            return;
+        }
         if (requestCode == FILE_CHOOSER_REQUEST) {
             Uri[] results = null;
             if (resultCode == RESULT_OK && data != null && data.getData() != null) {
@@ -285,6 +317,32 @@ public class MainActivity extends Activity implements SensorEventListener {
                                        int h3, int m3) {
             ReminderScheduler.configure(MainActivity.this, enabled,
                     new int[][]{{h1, m1}, {h2, m2}, {h3, m3}});
+        }
+
+        @JavascriptInterface
+        public void configureItemReminders(String json) { ReminderScheduler.configureItems(MainActivity.this, json); }
+
+        @JavascriptInterface
+        public void exportBackupFile(String json) {
+            pendingBackupJson = json == null ? "" : json;
+            runOnUiThread(() -> {
+                try {
+                    Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT); intent.addCategory(Intent.CATEGORY_OPENABLE); intent.setType("application/json");
+                    intent.putExtra(Intent.EXTRA_TITLE, "RIVAYA-backup-" + new SimpleDateFormat("yyyy-MM-dd", Locale.US).format(new Date()) + ".json");
+                    startActivityForResult(intent, BACKUP_CREATE_REQUEST);
+                } catch (Exception e) { pendingBackupJson = null; if (webView != null) webView.evaluateJavascript("window.rivayaOnBackupExport && window.rivayaOnBackupExport(false)", null); }
+            });
+        }
+
+        @JavascriptInterface
+        public void importBackupFile() {
+            runOnUiThread(() -> {
+                try {
+                    Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT); intent.addCategory(Intent.CATEGORY_OPENABLE); intent.setType("*/*");
+                    intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{"application/json","text/plain"});
+                    startActivityForResult(intent, BACKUP_OPEN_REQUEST);
+                } catch (Exception e) { if (webView != null) webView.evaluateJavascript("window.rivayaOnBackupImport && window.rivayaOnBackupImport('')", null); }
+            });
         }
 
         @JavascriptInterface
