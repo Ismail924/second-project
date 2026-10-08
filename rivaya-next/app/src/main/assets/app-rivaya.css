@@ -393,3 +393,28 @@ html.rv-android body{padding-bottom:0!important}
     bottom:10px!important;
   }
 }
+
+/* RIVAYA 3.2.3 — profile stats icon collision fix */
+.rv-profile-stats-neon .rv-stat-icon{
+  display:grid!important;
+  place-items:center!important;
+  width:24px!important;
+  height:24px!important;
+  margin:0 auto 5px!important;
+  padding:0!important;
+  border:0!important;
+  border-radius:8px!important;
+  background:rgba(92,82,255,.10)!important;
+  box-shadow:none!important;
+  font-style:normal!important;
+  font-size:15px!important;
+  line-height:1!important;
+  text-decoration:none!important;
+  transform:none!important;
+}
+.rv-profile-stats-neon .rv-stat-streak{color:#c15cff!important;background:rgba(183,76,255,.10)!important}
+.rv-profile-stats-neon .rv-stat-done{color:#7c6cff!important;background:rgba(104,89,255,.12)!important}
+.rv-profile-stats-neon .rv-stat-steps{color:#5f7dff!important;background:rgba(72,105,255,.10)!important}
+.rv-profile-stats-neon b{margin-top:0!important;font-size:21px!important;line-height:1.05}
+.rv-profile-stats-neon span{margin-top:5px!important;line-height:1.25}
+
