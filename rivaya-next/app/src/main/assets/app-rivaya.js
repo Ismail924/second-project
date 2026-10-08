@@ -688,7 +688,20 @@ document.addEventListener('click',e=>{
     return;
   }
   const nav=e.target.closest('[data-nav]');
-  if(nav){currentView=nav.dataset.nav;render();if(currentView==='activity'||currentView==='today')requestNativeHealthRefresh();window.scrollTo({top:0,behavior:'smooth'});return}
+  if(nav){
+    currentView=nav.dataset.nav;
+    window.scrollTo(0,0);
+    document.documentElement.scrollTop=0;
+    document.body.scrollTop=0;
+    render();
+    requestAnimationFrame(()=>{
+      window.scrollTo(0,0);
+      document.documentElement.scrollTop=0;
+      document.body.scrollTop=0;
+    });
+    if(currentView==='activity'||currentView==='today')requestNativeHealthRefresh();
+    return
+  }
   const op=e.target.closest('[data-open]');
   if(op){
     if(op.dataset.open==='goalModal'){
