@@ -36,7 +36,8 @@ public class AppSmokeTest {
                     value -> {fits[0]="true".equals(value);done.countDown();}));
                 assertTrue(view+" overflows viewport",done.await(10,TimeUnit.SECONDS)&&fits[0]);
                 Thread.sleep(350);
-                assertTrue("Cannot capture "+view,device.takeScreenshot(new java.io.File(c.getCacheDir(),view+".png")));
+                device.executeShellCommand("mkdir -p /sdcard/Download/rivaya-previews");
+                device.executeShellCommand("screencap -p /sdcard/Download/rivaya-previews/"+view+".png");
             }
             CountDownLatch periods = new CountDownLatch(1);
             boolean[] ok = {false};

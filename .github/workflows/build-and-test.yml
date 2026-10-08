@@ -63,7 +63,7 @@ jobs:
           script: |
             cd rivaya-next && gradle :app:connectedDebugAndroidTest --stacktrace
             mkdir -p screen-previews
-            for view in today profile plan progress; do adb shell run-as app.rivaya.smart01 cat cache/$view.png > screen-previews/$view.png; done
+            for view in today profile plan progress; do adb pull /sdcard/Download/rivaya-previews/$view.png screen-previews/$view.png; done
 
       - name: Prepare tested APK
         if: success()
