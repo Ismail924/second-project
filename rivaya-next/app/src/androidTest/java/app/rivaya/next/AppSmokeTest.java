@@ -23,6 +23,31 @@ public class AppSmokeTest {
     private static final String PACKAGE = "app.rivaya.smart01";
 
     @Test
+    public void allFourScreensFitAndProgressPeriodsWork() throws Exception {
+        UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
+        Context c = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            Thread.sleep(1800);
+            for (String view : new String[]{"today","profile","plan","progress"}) {
+                CountDownLatch done = new CountDownLatch(1);
+                boolean[] fits = {false};
+                scenario.onActivity(a -> a.getWebViewForTesting().evaluateJavascript(
+                    "document.querySelectorAll('.modal').forEach(m=>m.classList.remove('open'));document.body.style.minHeight='';currentView='"+view+"';render();document.documentElement.scrollWidth<=innerWidth",
+                    value -> {fits[0]="true".equals(value);done.countDown();}));
+                assertTrue(view+" overflows viewport",done.await(10,TimeUnit.SECONDS)&&fits[0]);
+                Thread.sleep(350);
+                assertTrue("Cannot capture "+view,device.takeScreenshot(new java.io.File(c.getCacheDir(),view+".png")));
+            }
+            CountDownLatch periods = new CountDownLatch(1);
+            boolean[] ok = {false};
+            scenario.onActivity(a -> a.getWebViewForTesting().evaluateJavascript(
+                "(()=>{for(const period of ['week','month','year']){currentStatsPeriod=period;render();if(document.querySelectorAll('.rv-progress-bar-col').length!==({week:7,month:15,year:12})[period]||document.documentElement.scrollWidth>innerWidth)return false}return true})()",
+                value -> {ok[0]="true".equals(value);periods.countDown();}));
+            assertTrue("Progress periods do not render",periods.await(10,TimeUnit.SECONDS)&&ok[0]);
+        }
+    }
+
+    @Test
     public void invalidBackupDoesNotEraseLiveState() throws Exception {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             Thread.sleep(1800);

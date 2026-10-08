@@ -43,7 +43,7 @@ jobs:
 
       - name: Build debug APK and test APK
         working-directory: rivaya-next
-        run: gradle :app:assembleDebug :app:assembleDebugAndroidTest :app:lintDebug --stacktrace
+        run: gradle :app:assembleDebug :app:assembleDebugAndroidTest :app:assembleRelease :app:lintDebug :app:lintRelease --stacktrace
 
       - name: Enable KVM
         run: |
@@ -73,6 +73,29 @@ jobs:
           name: RIVAYA-4.0.1-RC2-TESTED
           path: RIVAYA-4.0.1-RC2-TESTED.apk
           if-no-files-found: error
+
+      - name: Upload unsigned release for original-key signing
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: RIVAYA-4.0.1-UNSIGNED
+          path: rivaya-next/app/build/outputs/apk/release/app-release-unsigned.apk
+          if-no-files-found: error
+
+      - name: Collect screen previews
+        if: success()
+        run: |
+          mkdir -p screen-previews
+          for view in today profile plan progress; do
+            adb shell run-as app.rivaya.smart01 cat cache/$view.png > screen-previews/$view.png
+          done
+
+      - name: Upload screen previews
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: RIVAYA-4-SCREEN-PREVIEWS
+          path: screen-previews
 
       - name: Prepare Android signing tools
         if: success()
