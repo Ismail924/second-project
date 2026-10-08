@@ -52,6 +52,13 @@ public class AppSmokeTest {
                     value -> { profileOk[0] = "true".equals(value); profile.countDown(); }));
             assertTrue("Profile screen did not render", profile.await(10, TimeUnit.SECONDS) && profileOk[0]);
 
+            CountDownLatch targetUi = new CountDownLatch(1);
+            final boolean[] targetUiOk = {false};
+            scenario.onActivity(activity -> activity.getWebViewForTesting().evaluateJavascript(
+                    "document.querySelectorAll('.rv-target-profile-stats > div').length===3 && document.querySelectorAll('.rv-target-setting').length>=6 && !!document.querySelector('.rv-target-instagram')",
+                    value -> { targetUiOk[0] = "true".equals(value); targetUi.countDown(); }));
+            assertTrue("Reference-matched Profile UI did not render", targetUi.await(8, TimeUnit.SECONDS) && targetUiOk[0]);
+
             CountDownLatch statIcons = new CountDownLatch(1);
             final boolean[] statIconsOk = {false};
             scenario.onActivity(activity -> activity.getWebViewForTesting().evaluateJavascript(
