@@ -28,7 +28,7 @@ public class AppSmokeTest {
             CountDownLatch ready = new CountDownLatch(1);
             final boolean[] homeOk = {false};
             scenario.onActivity(activity -> activity.getWebViewForTesting().evaluateJavascript(
-                    "document.readyState === 'complete' && document.body.innerText.includes('Сегодня') && document.body.innerText.includes('Привычки') && !!document.querySelector('.rv-premium-cta')",
+                    "document.readyState === 'complete' && document.body.innerText.includes('Сегодня') && document.body.innerText.includes('Привычки') && !!document.querySelector('.rv-target-add-habit') && !!document.querySelector('.rv-target-focus-card')",
                     value -> { homeOk[0] = "true".equals(value); ready.countDown(); }));
             assertTrue("Today screen did not render", ready.await(10, TimeUnit.SECONDS) && homeOk[0]);
 
@@ -62,7 +62,7 @@ public class AppSmokeTest {
             CountDownLatch statIcons = new CountDownLatch(1);
             final boolean[] statIconsOk = {false};
             scenario.onActivity(activity -> activity.getWebViewForTesting().evaluateJavascript(
-                    "(()=>{const icons=[...document.querySelectorAll('.rv-profile-stats-neon .rv-stat-icon')];const old=document.querySelector('.rv-profile-stats-neon i.check');return icons.length===3&&!old&&icons.every(i=>{const r=i.getBoundingClientRect();return r.width>=22&&r.width<=26&&r.height>=22&&r.height<=26})})()",
+                    "(()=>{const icons=[...document.querySelectorAll('.rv-target-profile-stats .rv-target-stat-icon')];return icons.length===3&&icons.every(i=>{const r=i.getBoundingClientRect();return r.width>=30&&r.width<=36&&r.height>=30&&r.height<=36})})()",
                     value -> { statIconsOk[0] = "true".equals(value); statIcons.countDown(); }));
             assertTrue("Profile stat icons are inconsistent or colliding with global styles", statIcons.await(8, TimeUnit.SECONDS) && statIconsOk[0]);
 
@@ -98,7 +98,7 @@ public class AppSmokeTest {
             CountDownLatch footerLayout = new CountDownLatch(1);
             final boolean[] footerLayoutOk = {false};
             scenario.onActivity(activity -> activity.getWebViewForTesting().evaluateJavascript(
-                    "window.scrollTo(0,document.body.scrollHeight);setTimeout(()=>{const f=document.querySelector('.rv-profile-footer-neon');const n=document.querySelector('.rv-bottom-nav');window.__footerOk=!!f&&f.getBoundingClientRect().bottom<=n.getBoundingClientRect().top-6;},150);true",
+                    "window.scrollTo(0,document.body.scrollHeight);setTimeout(()=>{const f=document.querySelector('.rv-target-profile-footer');const n=document.querySelector('.rv-bottom-nav');window.__footerOk=!!f&&f.getBoundingClientRect().bottom<=n.getBoundingClientRect().top-6;},150);true",
                     value -> footerLayout.countDown()));
             assertTrue("Footer layout command failed", footerLayout.await(5, TimeUnit.SECONDS));
             Thread.sleep(500);
@@ -118,7 +118,7 @@ public class AppSmokeTest {
             CountDownLatch footerSafe = new CountDownLatch(1);
             final boolean[] footerSafeOk = {false};
             scenario.onActivity(activity -> activity.getWebViewForTesting().evaluateJavascript(
-                    "currentView='profile';render();window.scrollTo(0,document.body.scrollHeight);setTimeout(()=>{const f=document.querySelector('.rv-profile-footer-neon')?.getBoundingClientRect();const n=document.querySelector('.rv-bottom-nav')?.getBoundingClientRect();window.__rvFooterSafe=!!f&&!!n&&f.bottom<=n.top;},250);true",
+                    "currentView='profile';render();window.scrollTo(0,document.body.scrollHeight);setTimeout(()=>{const f=document.querySelector('.rv-target-profile-footer')?.getBoundingClientRect();const n=document.querySelector('.rv-bottom-nav')?.getBoundingClientRect();window.__rvFooterSafe=!!f&&!!n&&f.bottom<=n.top;},250);true",
                     value -> footerSafe.countDown()));
             assertTrue("Footer setup did not run", footerSafe.await(5, TimeUnit.SECONDS));
             Thread.sleep(500);
