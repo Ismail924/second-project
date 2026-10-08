@@ -1,6 +1,6 @@
 const STORAGE_KEY = 'rivaya-public-v1';
 const LEGACY_KEYS = [];
-const todayKey = () => new Date().toISOString().slice(0,10);
+const todayKey = () => dateKey(new Date());
 const ruDate = (d=new Date()) => new Intl.DateTimeFormat('ru-RU',{weekday:'long',day:'numeric',month:'long'}).format(d);
 
 const defaultState = {
@@ -55,6 +55,9 @@ window.vektorOnNativeSteps=function(payload){
     const status=String(data.status||'denied');
     if(status==='granted'){
       state.activity.access='granted';
+      delete state.activity.nativeStatus;
+      state.activity.day=data.day||todayKey();
+      if(data.dailySteps && typeof data.dailySteps==='object') state.activity.dailySteps={...state.activity.dailySteps,...data.dailySteps};
       state.activity.steps=Math.max(0,Math.round(Number(data.steps)||0));
       if(Array.isArray(data.history)){
         const hist=data.history.slice(-7).map(v=>Math.max(0,Math.round(Number(v)||0)));
@@ -148,16 +151,16 @@ function recordDailySnapshots(){
   try{
     const k=todayKey();
     state.activity.dailySteps=state.activity.dailySteps||{};
-    if(state.activity.access==='granted')state.activity.dailySteps[k]=Math.max(0,Math.round(Number(state.activity.steps)||0));
+    if(activityConnected())state.activity.dailySteps[k]=Math.max(0,Math.round(Number(state.activity.steps)||0));
     state.goalSnapshots=state.goalSnapshots||{};
     state.goalSnapshots[k]=Object.fromEntries((state.goals||[]).map(g=>[g.id,goalPct(g)]));
-    const cutoff=new Date();cutoff.setDate(cutoff.getDate()-45);const cut=dateKey(cutoff);
+    const cutoff=new Date();cutoff.setDate(cutoff.getDate()-400);const cut=dateKey(cutoff);
     Object.keys(state.activity.dailySteps).forEach(d=>{if(d<cut)delete state.activity.dailySteps[d]});
     Object.keys(state.goalSnapshots).forEach(d=>{if(d<cut)delete state.goalSnapshots[d]});
   }catch{}
 }
 function save(){recordDailySnapshots();localStorage.setItem(STORAGE_KEY,JSON.stringify(state));setTimeout(()=>syncSmartReminders(false),0)}
-function activityConnected(){return state.activity.access==='granted'}
+function activityConnected(){return state.activity.access==='granted' && (!state.activity.day || state.activity.day===todayKey())}
 function healthSource(){
   const ua=navigator.userAgent||'';
   if(/iPhone|iPad|iPod/i.test(ua))return 'Apple Health';
@@ -342,8 +345,9 @@ function closeModal(id){const m=document.getElementById(id);if(!m)return;m.class
 function pageHead(title,sub,actions=''){return `<div class="page-head"><div><h1>${title}</h1><p>${sub}</p></div><div class="actions">${actions}</div></div>`}
 
 function activityConnectCard(compact=false){
-  const unsupported=state.activity.nativeStatus==='unsupported'||state.activity.nativeStatus==='unavailable';
-  const title=unsupported?'Health Connect недоступен':'Доступ к шагам не включён';
+  const unsupported=state.activity.nativeStatus==='unsupported';
+  const unavailable=state.activity.nativeStatus==='unavailable';
+  const title=unsupported?'Health Connect недоступен':unavailable?'Подключите Health Connect':'Доступ к шагам не включён';
   const copy=unsupported?'На этом устройстве нельзя подключить системный источник шагов.':'Разрешите доступ, чтобы RIVAYA автоматически показывал ваши реальные шаги с телефона.';
   return `<section class="permission-card ${compact?'compact':''}" data-nav="activity">
     <div class="permission-card-icon">👟</div>
@@ -352,7 +356,7 @@ function activityConnectCard(compact=false){
       <div class="permission-card-title">${title}</div>
       <div class="permission-card-copy">${copy}</div>
     </div>
-    <button class="primary permission-action" data-health-access ${unsupported?'disabled':''}>${unsupported?'Недоступно':'Разрешить доступ'}</button>
+    <button class="primary permission-action" data-health-access ${unsupported?'disabled':''}>${unsupported?'Недоступно':unavailable?'Подключить':'Разрешить доступ'}</button>
   </section>`;
 }
 
@@ -528,7 +532,7 @@ function collectSmartReminderItems(){
   (state.habits||[]).forEach(h=>{
     if(!h.reminderEnabled||!h.reminderTime||timeInQuiet(h.reminderTime))return;
     const ended=habitEndDate(h);if(ended&&ended<startOfDay(new Date()))return;
-    items.push({id:'habit-'+h.id,title:'Привычка: '+h.name,body:'Пора выполнить привычку и сохранить серию.',time:h.reminderTime,weekdaysOnly:habitMode(h)==='weekdays'});
+    items.push({id:'habit-'+h.id,title:'Привычка: '+h.name,body:'Пора выполнить привычку и сохранить серию.',time:h.reminderTime,weekdaysOnly:habitMode(h)==='weekdays',endDate:h.endDate||''});
   });
   (state.goals||[]).forEach(g=>{
     if(!g.reminderEnabled||!g.reminderTime||goalIsComplete(g)||timeInQuiet(g.reminderTime))return;
@@ -582,9 +586,28 @@ function nearestGoal(){
 }
 function backupText(){return JSON.stringify({format:'RIVAYA_BACKUP_V1',exportedAt:new Date().toISOString(),state},null,2)}
 function restoreBackupText(text){
-  const parsed=JSON.parse(text);const incoming=parsed?.state||parsed;
-  if(!incoming||!Array.isArray(incoming.habits)||!Array.isArray(incoming.goals))throw new Error('Неверный формат');
-  localStorage.setItem(STORAGE_KEY,JSON.stringify(incoming));state=loadState();save();return true;
+  const parsed=JSON.parse(text);
+  if(parsed.format && parsed.format!=='RIVAYA_BACKUP_V1')throw new Error('Неизвестная версия копии');
+  const incoming=parsed?.state||parsed;
+  if(!incoming||!Array.isArray(incoming.habits)||!Array.isArray(incoming.goals)||
+     !incoming.checks||typeof incoming.checks!=='object'||Array.isArray(incoming.checks))throw new Error('Неверный формат');
+  const validId=x=>x&&typeof x.id==='string'&&/^[a-zA-Z0-9-]+$/.test(x.id)&&typeof x.name==='string';
+  if(!incoming.habits.every(validId)||!incoming.goals.every(g=>validId(g)&&Array.isArray(g.steps)&&g.steps.every(validId)))throw new Error('Повреждены записи');
+  if(new Set(incoming.habits.map(h=>h.id)).size!==incoming.habits.length||new Set(incoming.goals.map(g=>g.id)).size!==incoming.goals.length)throw new Error('Повторяющиеся записи');
+  if(!Object.values(incoming.checks).every(v=>typeof v==='boolean'))throw new Error('Повреждена история');
+  const previous=localStorage.getItem(STORAGE_KEY),previousState=state;
+  try{
+    // Retain a recovery point before replacing live data.
+    if(previous)localStorage.setItem(STORAGE_KEY+'-before-restore',previous);
+    const restored=clone(incoming);
+    restored.activity={...restored.activity,access:'denied',steps:0,day:todayKey(),lastSync:null};
+    localStorage.setItem(STORAGE_KEY,JSON.stringify(restored));
+    state=loadState();save();requestNativeHealthRefresh();return true;
+  }catch(e){
+    state=previousState;
+    if(previous===null)localStorage.removeItem(STORAGE_KEY);else localStorage.setItem(STORAGE_KEY,previous);
+    throw e;
+  }
 }
 
 function renderProfile(){
@@ -847,6 +870,7 @@ document.getElementById('saveGoalBtn').addEventListener('click',()=>{
   const deadline=document.getElementById('goalDeadline').value;
   const reminderEnabled=!!document.getElementById('goalReminderEnabled')?.checked;
   const reminderTime=document.getElementById('goalReminderTime')?.value||'';
+  if(reminderEnabled&&!/^([01]\d|2[0-3]):[0-5]\d$/.test(reminderTime)){toast('Выбери время напоминания');return}
   if(type==='money'){
     const target=Math.max(0,Math.round((Number(document.getElementById('goalTargetAmount').value)||0)/100)*100);
     if(target<=0){toast('Укажи сумму, которую хочешь накопить');return}
@@ -918,6 +942,7 @@ document.getElementById('saveHabitBtn').addEventListener('click',()=>{
   const goalId=document.getElementById('habitGoalLink')?.value||'';
   const reminderEnabled=!!document.getElementById('habitReminderEnabled')?.checked;
   const reminderTime=document.getElementById('habitReminderTime')?.value||'';
+  if(reminderEnabled&&!/^([01]\d|2[0-3]):[0-5]\d$/.test(reminderTime)){toast('Выбери время напоминания');return}
   if(endDate && endDate<todayKey()){toast('Срок не может быть раньше сегодняшней даты');return}
   state.habits.push({id:'h'+Date.now(),name,freq,icon:'✓',color:'purple',streak:0,createdAt:todayKey(),endDate,goalId,reminderEnabled,reminderTime});
   save();syncSmartReminders(true);closeModal('habitModal');document.getElementById('habitName').value='';document.getElementById('habitEndDate').value='';currentView='habits';render();toast('Привычка добавлена');
@@ -931,6 +956,7 @@ document.getElementById('saveEditHabitBtn')?.addEventListener('click',()=>{
   const goalId=document.getElementById('editHabitGoalLink')?.value||'';
   const reminderEnabled=!!document.getElementById('editHabitReminderEnabled')?.checked;
   const reminderTime=document.getElementById('editHabitReminderTime')?.value||'';
+  if(reminderEnabled&&!/^([01]\d|2[0-3]):[0-5]\d$/.test(reminderTime)){toast('Выбери время напоминания');return}
   if(endDate && endDate<h.createdAt){toast('Срок не может быть раньше даты создания привычки');return}
   h.name=name;h.freq=sel.options[sel.selectedIndex].text;h.endDate=endDate;h.goalId=goalId;h.reminderEnabled=reminderEnabled;h.reminderTime=reminderTime;
   save();syncSmartReminders(true);closeModal('editHabitModal');editingHabitId=null;render();toast('Привычка обновлена');
@@ -1008,7 +1034,7 @@ async function installApp(){
   toast('На iPhone: Поделиться → На экран «Домой». На Android: меню браузера → Установить приложение.');
 }
 function exportData(){
-  const blob=new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
+  const blob=new Blob([backupText()],{type:'application/json'});
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='rivaya-backup.json';a.click();URL.revokeObjectURL(a.href);toast('Резервная копия готова');
 }
 
@@ -1271,7 +1297,7 @@ function renderPlan(){
   const linkedCount=activeHabits.filter(h=>linkedGoal(h)).length;
   const goalCards=activeGoals.slice(0,4).map(g=>{
     const linked=linkedHabitsForGoal(g.id);
-    return `<article class="rv-plan-goal-card" data-nav="goals"><div class="rv-plan-goal-top"><div class="rv-plan-goal-icon">${rvUiIcon('target')}</div><span>${daysLeft(g.deadline)}</span><b>${goalPct(g)}%</b></div><h3>${esc(g.name)}</h3><p>${linked.length?`${linked.length} связанных привычек`:'Добавь привычку, которая двигает эту цель'}</p><div class="rv-plan-progress"><i style="width:${goalPct(g)}%"></i></div></article>`;
+    return `<article class="rv-plan-goal-card" data-edit-goal="${esc(g.id)}" role="button" tabindex="0"><div class="rv-plan-goal-top"><div class="rv-plan-goal-icon">${rvUiIcon('target')}</div><span>${daysLeft(g.deadline)}</span><b>${goalPct(g)}%</b></div><h3>${esc(g.name)}</h3><p>${linked.length?`${linked.length} связанных привычек`:'Добавь привычку, которая двигает эту цель'}</p><div class="rv-plan-progress"><i style="width:${goalPct(g)}%"></i></div></article>`;
   }).join('');
   const habitCards=activeHabits.slice(0,6).map(h=>{
     const st=habitLifetimeStats(h),goal=linkedGoal(h),scheduled=habitScheduledOnDate(h,new Date()),isDone=scheduled&&doneToday(h.id);
@@ -1291,10 +1317,10 @@ function rvDayScore(d){
 }
 function renderProgress(){
   const periods={week:{days:7,label:'за 7 дней'},month:{days:30,label:'за 30 дней'},year:{days:365,label:'за 12 месяцев'}},period=periods[currentStatsPeriod]||periods.month;
-  const vals=state.habits.map(h=>habitDisplayStats(h,period.days)),done=vals.reduce((a,v)=>a+v.done,0),target=vals.reduce((a,v)=>a+v.target,0),overall=target?Math.round(done/target*100):0;
-  const series=completionSeries(currentStatsPeriod),max=Math.max(1,...series),labels=currentStatsPeriod==='week'?['Пн','Вт','Ср','Чт','Пт','Сб','Вс']:series.map((_,i)=>String(i+1));
-  const bars=series.map((v,i)=>`<div class="rv-progress-bar-col"><div class="rv-progress-bar-track"><i style="height:${v?Math.max(8,Math.round(v/max*100)):3}%"></i></div><small>${labels[i]||''}</small></div>`).join('');
-  const activeGoals=state.goals.filter(g=>!goalIsComplete(g)),goalAvg=activeGoals.length?Math.round(activeGoals.reduce((s,g)=>s+goalPct(g),0)/activeGoals.length):0,habitAvg=state.habits.length?Math.round(state.habits.reduce((s,h)=>s+habitDisplayStats(h,period.days).p,0)/state.habits.length):0,streak=rvDaysWithActivityStreak(),w=weeklySummary();
+  const vals=state.habits.map(h=>habitStats(h,period.days)),done=vals.reduce((a,v)=>a+v.done,0),target=vals.reduce((a,v)=>a+v.target,0),overall=target?Math.round(done/target*100):0;
+  const series=completionSeries(currentStatsPeriod),max=Math.max(1,...series),labels=currentStatsPeriod==='week'?series.map((_,i)=>{const d=new Date();d.setDate(d.getDate()-6+i);return new Intl.DateTimeFormat('ru-RU',{weekday:'short'}).format(d)}):currentStatsPeriod==='year'?series.map((_,i)=>{const d=new Date();d.setDate(1);d.setMonth(d.getMonth()-11+i);return new Intl.DateTimeFormat('ru-RU',{month:'short'}).format(d)}):series.map((_,i)=>{const d=new Date();d.setDate(d.getDate()-29+i*2);return String(d.getDate())});
+  const bars=series.map((v,i)=>`<div class="rv-progress-bar-col" title="${esc(labels[i])}: ${v} выполнений"><div class="rv-progress-bar-track"><i style="height:${v?Math.max(8,Math.round(v/max*100)):3}%"></i></div><small>${labels[i]||''}</small></div>`).join('');
+  const activeGoals=state.goals.filter(g=>!goalIsComplete(g)),goalAvg=activeGoals.length?Math.round(activeGoals.reduce((s,g)=>s+goalPct(g),0)/activeGoals.length):0,habitAvg=state.habits.length?Math.round(state.habits.reduce((s,h)=>s+habitStats(h,period.days).p,0)/state.habits.length):0,streak=rvDaysWithActivityStreak(),w=weeklySummary();
   const now=startOfDay(new Date());let cal='';for(let i=27;i>=0;i--){const d=new Date(now);d.setDate(now.getDate()-i);const s=rvDayScore(d);const cls=s.planned===0?'':(s.p===100?'perfect':s.done>0?'partial':'missed');cal+=`<div class="rv-progress-day ${cls} ${dateKey(d)===todayKey()?'today':''}"><span>${d.getDate()}</span></div>`}
   return `<div class="rv-screen rv-progress-target">
     <div class="rv-target-title-row"><div><h1>Прогресс</h1><div class="rv-target-date">Только твои реальные действия</div></div></div>
@@ -1370,7 +1396,7 @@ renderProfile=function(){
     </div>
 
     <section class="rv-target-profile-footer">
-      <div class="rv-target-footer-copy"><b>RIVAYA 4.0 RC1</b><span>Цели · привычки · реальные шаги · прогресс</span></div>
+      <div class="rv-target-footer-copy"><b>RIVAYA 4.0.1 RC2</b><span>Цели · привычки · реальные шаги · прогресс</span></div>
       <div class="rv-target-author">
         <span>Автор</span>
         <button class="rv-target-instagram" data-external="https://www.instagram.com/_isma_guder_/">

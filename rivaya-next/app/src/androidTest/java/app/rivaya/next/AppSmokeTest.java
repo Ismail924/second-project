@@ -22,19 +22,98 @@ import java.util.concurrent.TimeUnit;
 public class AppSmokeTest {
     private static final String PACKAGE = "app.rivaya.smart01";
 
+    private static boolean awaitPage(ActivityScenario<MainActivity> scenario, String predicate) throws Exception {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(15);
+        while (System.nanoTime() < deadline) {
+            CountDownLatch evaluated = new CountDownLatch(1);
+            boolean[] ready = {false};
+            scenario.onActivity(a -> a.getWebViewForTesting().evaluateJavascript(
+                predicate, value -> {ready[0]="true".equals(value);evaluated.countDown();}));
+            if (evaluated.await(2,TimeUnit.SECONDS) && ready[0]) return true;
+            Thread.sleep(200);
+        }
+        return false;
+    }
+
+    @Test
+    public void allFourScreensFitAndProgressPeriodsWork() throws Exception {
+        UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
+        Context c = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            assertTrue("WebView did not become ready", awaitPage(scenario,"document.readyState===\"complete\" && typeof render===\"function\""));
+            androidx.test.uiautomator.UiObject2 tutorial = device.findObject(androidx.test.uiautomator.By.text("Got it"));
+            if (tutorial != null) tutorial.click();
+            device.waitForIdle();
+            for (String view : new String[]{"today","profile","plan","progress"}) {
+                CountDownLatch done = new CountDownLatch(1);
+                boolean[] fits = {false};
+                scenario.onActivity(a -> a.getWebViewForTesting().evaluateJavascript(
+                    "state.profile.onboardingDone=true;document.querySelectorAll('.modal').forEach(m=>m.classList.remove('open'));document.body.style.minHeight='';currentView='"+view+"';render();window.scrollTo(0,0);document.documentElement.scrollWidth<=innerWidth",
+                    value -> {fits[0]="true".equals(value);done.countDown();}));
+                assertTrue(view+" overflows viewport",done.await(10,TimeUnit.SECONDS)&&fits[0]);
+                // Await the WebView frame, then clear emulator-owned startup/ANR dialogs.
+                CountDownLatch frame = new CountDownLatch(1);
+                scenario.onActivity(a -> a.getWebViewForTesting().postVisualStateCallback(1,
+                    new android.webkit.WebView.VisualStateCallback() {
+                        @Override public void onComplete(long id) { frame.countDown(); }
+                    }));
+                assertTrue("WebView frame did not render", frame.await(15,TimeUnit.SECONDS));
+                for (int attempt=0; attempt<3; attempt++) {
+                    androidx.test.uiautomator.UiObject2 wait = device.findObject(androidx.test.uiautomator.By.text("Wait"));
+                    if (wait != null) wait.click();
+                    androidx.test.uiautomator.UiObject2 gotIt = device.findObject(androidx.test.uiautomator.By.text("Got it"));
+                    if (gotIt != null) gotIt.click();
+                    device.waitForIdle();
+                    Thread.sleep(500);
+                }
+                assertTrue("Emulator system dialog blocks screenshot",
+                    device.findObject(androidx.test.uiautomator.By.text("Process system isn't responding")) == null);
+                device.executeShellCommand("mkdir -p /sdcard/Download/rivaya-previews");
+                device.executeShellCommand("screencap -p /sdcard/Download/rivaya-previews/"+view+".png");
+            }
+            CountDownLatch periods = new CountDownLatch(1);
+            boolean[] ok = {false};
+            scenario.onActivity(a -> a.getWebViewForTesting().evaluateJavascript(
+                "(()=>{for(const period of ['week','month','year']){currentStatsPeriod=period;render();if(document.querySelectorAll('.rv-progress-bar-col').length!==({week:7,month:15,year:12})[period]||document.documentElement.scrollWidth>innerWidth)return false}return true})()",
+                value -> {ok[0]="true".equals(value);periods.countDown();}));
+            assertTrue("Progress periods do not render",periods.await(10,TimeUnit.SECONDS)&&ok[0]);
+        }
+    }
+
+    @Test
+    public void invalidBackupDoesNotEraseLiveState() throws Exception {
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            assertTrue("WebView did not become ready", awaitPage(scenario,"document.readyState===\"complete\" && typeof render===\"function\""));
+            CountDownLatch done = new CountDownLatch(1);
+            boolean[] ok = {false};
+            scenario.onActivity(a -> a.getWebViewForTesting().evaluateJavascript(
+                "(()=>{const before=localStorage.getItem(STORAGE_KEY);let rejected=false;try{restoreBackupText(JSON.stringify({habits:[{name:'broken'}],goals:[],checks:{}}))}catch(e){rejected=true}return rejected&&before===localStorage.getItem(STORAGE_KEY)})()",
+                value -> {ok[0]="true".equals(value);done.countDown();}));
+            assertTrue("Invalid backup changed live data", done.await(10,TimeUnit.SECONDS)&&ok[0]);
+        }
+    }
+
+    @Test
+    public void expiredReminderDoesNotResurrectAndIdsDoNotCollide() throws Exception {
+        Context c = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        org.json.JSONObject expired = new org.json.JSONObject().put("endDate","2000-01-01");
+        assertTrue("Expired reminder still eligible", !ReminderScheduler.withinTerm(expired,System.currentTimeMillis()));
+        assertTrue("Open-ended reminder rejected", ReminderScheduler.withinTerm(new org.json.JSONObject(),System.currentTimeMillis()));
+        // Java String hash collision; alarms must additionally identify items by URI.
+        ReminderScheduler.configureItems(c,"[{\"id\":\"Aa\",\"title\":\"One\",\"time\":\"12:00\"},{\"id\":\"BB\",\"title\":\"Two\",\"time\":\"12:00\"}]");
+        assertNotEquals(ReminderScheduler.itemPendingIntent(c,"Aa"),ReminderScheduler.itemPendingIntent(c,"BB"));
+        ReminderScheduler.configureItems(c,"[]");
+    }
+
     @Test
     public void appLaunchesProfileRendersAndAvatarPickerOpens() throws Exception {
         UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
 
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
-            Thread.sleep(1800);
+            assertTrue("WebView did not become ready", awaitPage(scenario,"document.readyState===\"complete\" && typeof render===\"function\""));
 
-            CountDownLatch ready = new CountDownLatch(1);
-            final boolean[] homeOk = {false};
-            scenario.onActivity(activity -> activity.getWebViewForTesting().evaluateJavascript(
-                    "document.readyState === 'complete' && document.body.innerText.includes('Сегодня') && document.body.innerText.includes('Привычки') && !!document.querySelector('.rv-target-add-habit') && !!document.querySelector('.rv-target-focus-card')",
-                    value -> { homeOk[0] = "true".equals(value); ready.countDown(); }));
-            assertTrue("Today screen did not render", ready.await(10, TimeUnit.SECONDS) && homeOk[0]);
+            assertTrue("Today screen did not render", awaitPage(scenario,
+                "document.body.innerText.includes('Сегодня') && document.body.innerText.includes('Привычки') && !!document.querySelector('.rv-target-add-habit') && !!document.querySelector('.rv-target-focus-card')"));
 
             CountDownLatch scrollReset = new CountDownLatch(1);
             final boolean[] scrollResetOk = {false};
