@@ -60,7 +60,10 @@ jobs:
           profile: pixel_6
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
-          script: cd rivaya-next && gradle :app:connectedDebugAndroidTest --stacktrace
+          script: |
+            cd rivaya-next && gradle :app:connectedDebugAndroidTest --stacktrace
+            mkdir -p screen-previews
+            for view in today profile plan progress; do adb shell run-as app.rivaya.smart01 cat cache/$view.png > screen-previews/$view.png; done
 
       - name: Prepare tested APK
         if: success()
@@ -81,14 +84,6 @@ jobs:
           name: RIVAYA-4.0.1-UNSIGNED
           path: rivaya-next/app/build/outputs/apk/release/app-release-unsigned.apk
           if-no-files-found: error
-
-      - name: Collect screen previews
-        if: success()
-        run: |
-          mkdir -p screen-previews
-          for view in today profile plan progress; do
-            adb shell run-as app.rivaya.smart01 cat cache/$view.png > screen-previews/$view.png
-          done
 
       - name: Upload screen previews
         if: success()
