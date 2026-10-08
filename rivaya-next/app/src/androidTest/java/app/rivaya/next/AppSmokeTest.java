@@ -73,6 +73,26 @@ public class AppSmokeTest {
                     "document.body.innerText.includes('Профиль')",
                     value -> { backOk[0] = "true".equals(value); back.countDown(); }));
             assertTrue("App did not return after closing picker", back.await(8, TimeUnit.SECONDS) && backOk[0]);
+
+            CountDownLatch navGeometry = new CountDownLatch(1);
+            final boolean[] navGeometryOk = {false};
+            scenario.onActivity(activity -> activity.getWebViewForTesting().evaluateJavascript(
+                    "(()=>{const n=document.querySelector('.rv-bottom-nav');const r=n.getBoundingClientRect();const b=[...n.querySelectorAll('.nav-item')].map(x=>x.getBoundingClientRect());return r.left>=0&&r.right<=innerWidth&&r.width>innerWidth*.85&&b.length===4&&b.every(x=>x.width>55)&&b.every((x,i)=>i===0||x.left>b[i-1].left);})()",
+                    value -> { navGeometryOk[0] = "true".equals(value); navGeometry.countDown(); }));
+            assertTrue("Bottom navigation is shifted or clipped", navGeometry.await(8, TimeUnit.SECONDS) && navGeometryOk[0]);
+
+            CountDownLatch footerSafe = new CountDownLatch(1);
+            final boolean[] footerSafeOk = {false};
+            scenario.onActivity(activity -> activity.getWebViewForTesting().evaluateJavascript(
+                    "currentView='profile';render();window.scrollTo(0,document.body.scrollHeight);setTimeout(()=>{const f=document.querySelector('.rv-profile-footer-neon')?.getBoundingClientRect();const n=document.querySelector('.rv-bottom-nav')?.getBoundingClientRect();window.__rvFooterSafe=!!f&&!!n&&f.bottom<=n.top;},250);true",
+                    value -> footerSafe.countDown()));
+            assertTrue("Footer setup did not run", footerSafe.await(5, TimeUnit.SECONDS));
+            Thread.sleep(500);
+            CountDownLatch footerCheck = new CountDownLatch(1);
+            scenario.onActivity(activity -> activity.getWebViewForTesting().evaluateJavascript(
+                    "window.__rvFooterSafe===true",
+                    value -> { footerSafeOk[0] = "true".equals(value); footerCheck.countDown(); }));
+            assertTrue("Profile footer remains hidden under bottom navigation", footerCheck.await(8, TimeUnit.SECONDS) && footerSafeOk[0]);
         }
     }
 }
