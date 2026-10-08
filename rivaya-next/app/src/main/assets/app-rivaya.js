@@ -1108,6 +1108,27 @@ function rvTodayHabitRow(h){
   return `<div class="rv-habit ${done?'done':''}" data-check="${h.id}"><div class="rv-check">${done?'✓':''}</div><div class="rv-glyph">${rvHabitGlyph(h)}</div><div class="rv-habit-main"><div class="rv-habit-name">${esc(h.name)}</div><div class="rv-habit-sub">${esc(h.freq)}${goal?' · связано с целью':''}</div></div><div class="rv-habit-meta">${right}</div></div>`;
 }
 
+function rvUiIcon(name){
+  const common='viewBox="0 0 24 24" aria-hidden="true"';
+  const icons={
+    flame:`<svg ${common}><path fill="currentColor" d="M12.6 2.1c.3 3.2-1.2 4.5-2.5 5.9-1.3 1.4-2.5 2.8-2.5 5.1 0 2.9 2 5 4.7 5 2.8 0 5-2.2 5-5.4 0-2.5-1.4-4.8-4.7-10.6Zm-.3 18.8c-4.8 0-8.2-3.2-8.2-7.7 0-3.4 1.8-5.4 3.5-7.2C9.1 4.4 10.4 3 10.1.2c5.6 4.4 9.8 8.5 9.8 13 0 4.5-3.2 7.7-7.6 7.7Z"/></svg>`,
+    check:`<svg ${common}><circle cx="12" cy="12" r="8.3" fill="none" stroke="currentColor" stroke-width="2"/><path d="m8.1 12.1 2.5 2.6 5.5-5.7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+    steps:`<svg ${common}><path fill="currentColor" d="M8.1 3.1c1.8.4 2.8 2.4 2.2 4.4-.7 2.1-2.7 3.3-4.5 2.7C4 9.7 3.2 7.7 3.9 5.7c.6-1.9 2.4-3 4.2-2.6Zm8.7 3.7c1.6.5 2.3 2.4 1.7 4.3-.6 1.9-2.3 3-3.9 2.5-1.6-.5-2.3-2.4-1.7-4.3.6-1.9 2.4-3 3.9-2.5ZM7.3 12.8c2.4-.2 4.5 1 4.7 2.8.2 1.7-1.6 3.3-4 3.5-2.4.2-4.5-1-4.7-2.8-.2-1.7 1.6-3.3 4-3.5Zm8.8 2.3c2.2-.1 4 1.1 4.1 2.8.1 1.6-1.6 3-3.7 3.1-2.2.1-4-1.1-4.1-2.8-.1-1.6 1.6-3 3.7-3.1Z"/></svg>`,
+    camera:`<svg ${common}><rect x="3.2" y="6.2" width="17.6" height="12.8" rx="3" fill="none" stroke="currentColor" stroke-width="1.9"/><path d="M8 6.2 9.4 4h5.2L16 6.2" fill="none" stroke="currentColor" stroke-width="1.9"/><circle cx="12" cy="12.5" r="3.2" fill="none" stroke="currentColor" stroke-width="1.9"/></svg>`,
+    sparkle:`<svg ${common}><path fill="currentColor" d="M12 2.5c.9 4 2.7 5.8 6.7 6.7-4 .9-5.8 2.7-6.7 6.7-.9-4-2.7-5.8-6.7-6.7 4-.9 5.8-2.7 6.7-6.7Zm6.7 12.2c.5 2.1 1.4 3 3.5 3.5-2.1.5-3 1.4-3.5 3.5-.5-2.1-1.4-3-3.5-3.5 2.1-.5 3-1.4 3.5-3.5Z"/></svg>`,
+    bell:`<svg ${common}><path d="M6.4 9.5c0-3.2 2.1-5.5 5.6-5.5s5.6 2.3 5.6 5.5v3.3l1.6 2.6H4.8l1.6-2.6V9.5Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9.5 18a2.7 2.7 0 0 0 5 0" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`,
+    moon:`<svg ${common}><path fill="currentColor" d="M18.6 15.7A7.2 7.2 0 0 1 8.3 5.4 8.4 8.4 0 1 0 18.6 15.7Z"/></svg>`,
+    heart:`<svg ${common}><path fill="currentColor" d="M12 20.2 4.4 12.8C1.8 10.3 2 6.1 5 4.1c2.3-1.5 5.1-1 7 1.1 1.9-2.1 4.7-2.6 7-1.1 3 2 3.2 6.2.6 8.7L12 20.2Z"/></svg>`,
+    cloud:`<svg ${common}><path d="M6.3 18.2h11.5a4.1 4.1 0 0 0 .5-8.2 6.3 6.3 0 0 0-11.8-1.8 5 5 0 0 0-.2 10Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>`,
+    target:`<svg ${common}><circle cx="11.5" cy="12.5" r="7.4" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="11.5" cy="12.5" r="4.2" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="11.5" cy="12.5" r="1.5" fill="currentColor"/><path d="m14.6 9.3 5.7-5.6m-2.8 0h2.8v2.8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+    list:`<svg ${common}><rect x="5" y="3.5" width="14" height="17" rx="3" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M8.5 8h7M8.5 12h7M8.5 16h4.7" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>`,
+    bars:`<svg ${common}><path d="M5.5 19V13M10 19V9M14.5 19V5M19 19v-8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>`,
+    instagram:`<svg ${common}><rect x="3.4" y="3.4" width="17.2" height="17.2" rx="5" fill="none" stroke="currentColor" stroke-width="1.9"/><circle cx="12" cy="12" r="4" fill="none" stroke="currentColor" stroke-width="1.9"/><circle cx="17.3" cy="6.8" r="1.1" fill="currentColor"/></svg>`,
+    external:`<svg ${common}><path d="M13.2 5H19v5.8M19 5l-8.3 8.3" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/><path d="M17.2 13v4.5a1.7 1.7 0 0 1-1.7 1.7h-9a1.7 1.7 0 0 1-1.7-1.7v-9a1.7 1.7 0 0 1 1.7-1.7H11" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>`
+  };
+  return `<span class="rv-ui-icon rv-ui-${name}">${icons[name]||''}</span>`;
+}
+
 renderToday=function(){
   const planned=scheduledHabitsToday();
   const done=completedToday();
@@ -1126,76 +1147,77 @@ renderToday=function(){
     : (planned.length ? 'Можно спокойно перейти к целям или отдыху.' : 'Добавь привычку, которую реально повторять каждый день.');
 
   const goalHtml=goal
-    ? `<section class="rv-neon-mini rv-neon-goal rv-tap-card" data-nav="goals">
-         <div class="rv-neon-mini-head"><span>Ближайшая цель</span><i>›</i></div>
+    ? `<section class="rv-target-mini rv-tap-card" data-nav="goals">
+         <div class="rv-target-mini-head"><span>Ближайшая цель</span><button>›</button></div>
          <h3>${esc(goal.name)}</h3>
          <p>${daysLeft(goal.deadline)} · ${goalPct(goal)}% выполнено</p>
-         <div class="rv-mini-progress"><i style="width:${goalPct(goal)}%"></i></div>
-         <div class="rv-neon-illustration target">◎</div>
+         <div class="rv-target-art">${rvUiIcon('target')}</div>
        </section>`
-    : `<section class="rv-neon-mini rv-neon-goal rv-tap-card" data-open="goalModal">
-         <div class="rv-neon-mini-head"><span>Ближайшая цель</span><i>＋</i></div>
+    : `<section class="rv-target-mini rv-tap-card" data-open="goalModal">
+         <div class="rv-target-mini-head"><span>Ближайшая цель</span><button>＋</button></div>
          <h3>Добавить цель</h3>
          <p>Свяжи цель с ежедневными действиями.</p>
-         <div class="rv-neon-illustration target">◎</div>
+         <div class="rv-target-art">${rvUiIcon('target')}</div>
        </section>`;
 
   const stepsHtml=activityConnected()
-    ? `<section class="rv-neon-mini rv-neon-steps rv-tap-card" data-nav="activity">
-         <div class="rv-neon-mini-head"><span>Шаги сегодня</span><i>›</i></div>
-         <div class="rv-neon-steps-value">${fmtNum(state.activity.steps)}</div>
+    ? `<section class="rv-target-mini rv-steps-target rv-tap-card" data-nav="activity">
+         <div class="rv-target-mini-head"><span>Шаги сегодня</span><button>›</button></div>
+         <div class="rv-target-steps-value">${fmtNum(state.activity.steps)}</div>
          <p>из ${fmtNum(state.activity.stepGoal)} · ${stepDistance()} км</p>
-         <div class="rv-neon-link">${stepPct()}% дневной цели →</div>
-         <div class="rv-mini-progress"><i style="width:${stepPct()}%"></i></div>
-         <div class="rv-neon-illustration shoe">⌁</div>
+         <div class="rv-target-link">${stepPct()}% дневной цели →</div>
+         <div class="rv-target-art rv-foot-art">${rvUiIcon('steps')}</div>
        </section>`
-    : `<section class="rv-neon-mini rv-neon-steps rv-tap-card" data-health-access>
-         <div class="rv-neon-mini-head"><span>Шаги сегодня</span><i>›</i></div>
-         <div class="rv-neon-steps-value">—</div>
+    : `<section class="rv-target-mini rv-steps-target rv-tap-card" data-health-access>
+         <div class="rv-target-mini-head"><span>Шаги сегодня</span><button>›</button></div>
+         <div class="rv-target-steps-value">—</div>
          <p>Доступ к шагам не включён</p>
-         <div class="rv-neon-link">Подключить реальные шаги →</div>
-         <div class="rv-neon-illustration shoe">⌁</div>
+         <div class="rv-target-link">Подключить реальные шаги →</div>
+         <div class="rv-target-art rv-foot-art">${rvUiIcon('steps')}</div>
        </section>`;
 
   const dayStatus=planned.length ? `${done}/${planned.length}` : 'День пока пустой';
 
-  return `<div class="rv-screen rv-home-v32">
-    <div class="rv-title-row rv-title-row-neon">
-      <div><h1>Сегодня</h1><div class="rv-date">${ruDate()}</div></div>
-      <div class="rv-streak rv-streak-neon"><span class="rv-streak-flame">◆</span><div><b>${streak}</b><span>дн. серия</span></div><i>›</i></div>
+  return `<div class="rv-screen rv-home-target">
+    <div class="rv-target-title-row">
+      <div><h1>Сегодня</h1><div class="rv-target-date">${ruDate()}</div></div>
+      <button class="rv-target-streak" data-nav="progress">
+        <span class="rv-target-streak-icon">${rvUiIcon('flame')}</span>
+        <span><b>${streak}</b><small>дн. серия</small></span>
+        <em>›</em>
+      </button>
     </div>
 
-    <section class="rv-neon-hero">
-      <div class="rv-neon-ring" style="--p:${p}">
+    <section class="rv-target-focus-card">
+      <div class="rv-target-progress-ring" style="--p:${p}">
         <div><strong>${p}%</strong><span>${planned.length?dayStatus:'День пока пустой'}</span></div>
       </div>
-      <div class="rv-neon-focus" ${focus?'data-check="'+focus.id+'"':'data-open="habitModal"'}>
-        <div class="rv-neon-kicker">✦ ФОКУС ДНЯ</div>
+      <div class="rv-target-focus-copy" ${focus?'data-check="'+focus.id+'"':'data-open="habitModal"'}>
+        <div class="rv-target-kicker"><span>✦</span> ФОКУС ДНЯ</div>
         <h2>${focusTitle}</h2>
         <p>${focusSub}</p>
-        <div class="rv-neon-pills"><span>✓ ${done}/${planned.length}</span><span>≈ ${activityConnected()?fmtNum(state.activity.steps):'шаги'}</span></div>
+        <div class="rv-target-pills"><span>✓ ${done}/${planned.length}</span><span>≈ ${activityConnected()?fmtNum(state.activity.steps):'шаги'}</span></div>
       </div>
-      <button class="rv-neon-arrow" ${focus?'data-check="'+focus.id+'"':'data-open="habitModal"'} aria-label="Открыть">›</button>
+      <button class="rv-target-focus-arrow" ${focus?'data-check="'+focus.id+'"':'data-open="habitModal"'}>›</button>
     </section>
 
-    <section class="rv-neon-card rv-neon-habits">
-      <div class="rv-neon-section-head">
+    <section class="rv-target-habits-card">
+      <div class="rv-target-section-head">
         <div><span>СЕГОДНЯ</span><h2>Привычки</h2></div>
         <button data-nav="habits">${planned.length?done+' из '+planned.length:'Все'} ›</button>
       </div>
-      <div class="rv-habits">${habitRows||`<div class="rv-neon-empty">
-        <div class="rv-neon-empty-icon">▤<i>✦</i></div>
+      <div class="rv-habits">${habitRows||`<div class="rv-target-empty">
+        <div class="rv-target-empty-icon">${rvUiIcon('list')}<i>✦</i></div>
         <b>Пока нет привычек на сегодня</b>
         <span>Добавь одну небольшую привычку — этого достаточно, чтобы начать.</span>
-        <button class="rv-premium-cta" data-open="habitModal"><i>＋</i><strong>Добавить привычку</strong></button>
+        <button class="rv-target-add-habit" data-open="habitModal"><i>＋</i><strong>Добавить привычку</strong></button>
       </div>`}</div>
-      ${planned.length>5?'<button class="rv-show-all" data-nav="habits">Показать остальные привычки ›</button>':''}
     </section>
 
-    <div class="rv-neon-two">${goalHtml}${stepsHtml}</div>
+    <div class="rv-target-mini-grid">${goalHtml}${stepsHtml}</div>
 
-    <section class="rv-neon-week">
-      <div class="rv-neon-week-icon">▥</div>
+    <section class="rv-target-week">
+      <div class="rv-target-week-icon">${rvUiIcon('bars')}</div>
       <div><span>НЕДЕЛЯ</span><b>${weekly.target?weekly.p+'% выполнения':'Собираем первые данные'}</b><p>${weekly.done} из ${weekly.target} привычек · ${weekly.steps?fmtNum(weekly.steps)+' шагов':'шаги появятся после подключения'}</p></div>
       <strong>${weekly.target?weekly.p+'%':'—'}</strong>
     </section>
@@ -1248,67 +1270,67 @@ renderProfile=function(){
   const health=activityConnected();
   const hasAvatar=!!state.profile?.avatarData;
 
-  return `<div class="rv-screen rv-profile-v32">
-    <section class="rv-profile-stats-neon">
-      <div><i class="rv-stat-icon rv-stat-streak">◆</i><b>${streak}</b><span>дней подряд</span></div>
-      <div><i class="rv-stat-icon rv-stat-done">✓</i><b>${w.done}</b><span>за неделю</span></div>
-      <div><i class="rv-stat-icon rv-stat-steps">⌁</i><b>${health?fmtNum(state.activity.steps):'—'}</b><span>шагов сегодня</span></div>
+  return `<div class="rv-screen rv-profile-target">
+    <section class="rv-target-profile-stats">
+      <div><span class="rv-target-stat-icon flame">${rvUiIcon('flame')}</span><b>${streak}</b><small>дней серия</small></div>
+      <div><span class="rv-target-stat-icon done">${rvUiIcon('check')}</span><b>${w.done}</b><small>выполнений за неделю</small></div>
+      <div><span class="rv-target-stat-icon steps">${rvUiIcon('steps')}</span><b>${health?fmtNum(state.activity.steps):'—'}</b><small>шагов сегодня</small></div>
     </section>
 
-    <div class="rv-settings-group rv-settings-group-neon">
-      <div class="rv-settings-title">ПРОФИЛЬ</div>
-      <div class="rv-settings">
-        <div class="rv-setting rv-setting-neon" data-avatar-pick>
-          <div class="rv-setting-icon rv-icon-camera">${hasAvatar?rvAvatarMarkup(name):'◉'}</div>
-          <div class="rv-setting-main"><b>Фото профиля</b><span>${hasAvatar?'Нажми, чтобы заменить фотографию':'Выбрать фотографию из галереи'}</span></div>
+    <div class="rv-target-group">
+      <div class="rv-target-group-title">ПРОФИЛЬ</div>
+      <div class="rv-target-settings">
+        <div class="rv-target-setting" data-avatar-pick>
+          <div class="rv-target-setting-icon">${hasAvatar?rvAvatarMarkup(name):rvUiIcon('camera')}</div>
+          <div class="rv-target-setting-copy"><b>Фото профиля</b><span>${hasAvatar?'Нажми, чтобы заменить фотографию':'Выбрать фотографию из галереи'}</span></div>
           <button>${hasAvatar?'Изменить':'Добавить'} ›</button>
         </div>
-        <div class="rv-setting rv-setting-neon" data-open="onboardingModal">
-          <div class="rv-setting-icon">✦</div>
-          <div class="rv-setting-main"><b>Имя и цель по шагам</b><span>${esc(name)} · ${fmtNum(state.activity.stepGoal)} шагов в день</span></div>
+        <div class="rv-target-setting" data-open="onboardingModal">
+          <div class="rv-target-setting-icon">${rvUiIcon('sparkle')}</div>
+          <div class="rv-target-setting-copy"><b>Имя и цель по шагам</b><span>${esc(name)} · ${fmtNum(state.activity.stepGoal)} шагов в день</span></div>
           <button>Изменить ›</button>
         </div>
       </div>
     </div>
 
-    <div class="rv-settings-group rv-settings-group-neon">
-      <div class="rv-settings-title">РЕЖИМ И УВЕДОМЛЕНИЯ</div>
-      <div class="rv-settings">
-        <div class="rv-setting rv-setting-neon" data-open="reminderModal">
-          <div class="rv-setting-icon">◷</div>
-          <div class="rv-setting-main"><b>Уведомления</b><span>${esc(smartReminderSummary())}</span></div>
+    <div class="rv-target-group">
+      <div class="rv-target-group-title">РЕЖИМ И УВЕДОМЛЕНИЯ</div>
+      <div class="rv-target-settings">
+        <div class="rv-target-setting" data-open="reminderModal">
+          <div class="rv-target-setting-icon">${rvUiIcon('bell')}</div>
+          <div class="rv-target-setting-copy"><b>Уведомления</b><span>${esc(smartReminderSummary())}</span></div>
           <button>Настроить ›</button>
         </div>
-        <div class="rv-setting rv-setting-neon" data-open="reminderModal">
-          <div class="rv-setting-icon">☾</div>
-          <div class="rv-setting-main"><b>Тихий режим</b><span>Без уведомлений в выбранное время</span></div>
-          <div class="rv-setting-value">${state.reminders?.quietEnabled?`${state.reminders.quietStart}–${state.reminders.quietEnd}`:'Выкл.'} ›</div>
+        <div class="rv-target-setting" data-open="reminderModal">
+          <div class="rv-target-setting-icon">${rvUiIcon('moon')}</div>
+          <div class="rv-target-setting-copy"><b>Тихий режим</b><span>Без уведомлений в выбранное время</span></div>
+          <button class="rv-target-time">${state.reminders?.quietEnabled?`${state.reminders.quietStart}–${state.reminders.quietEnd}`:'23:00–08:00'} ›</button>
         </div>
       </div>
     </div>
 
-    <div class="rv-settings-group rv-settings-group-neon">
-      <div class="rv-settings-title">ДАННЫЕ И ЗДОРОВЬЕ</div>
-      <div class="rv-settings">
-        <div class="rv-setting rv-setting-neon" ${health?'data-health-manage':'data-health-access'}>
-          <div class="rv-setting-icon">♥</div>
-          <div class="rv-setting-main"><b>Реальные шаги</b><span>${health?'Подключено: '+healthSource():'Подключи системный источник шагов'}</span></div>
-          <div class="rv-setting-value">${health?'Подключено ✓':'Подключить ›'}</div>
+    <div class="rv-target-group">
+      <div class="rv-target-group-title">ДАННЫЕ И ЗДОРОВЬЕ</div>
+      <div class="rv-target-settings">
+        <div class="rv-target-setting" ${health?'data-health-manage':'data-health-access'}>
+          <div class="rv-target-setting-icon">${rvUiIcon('heart')}</div>
+          <div class="rv-target-setting-copy"><b>Реальные шаги</b><span>${health?'Подключено: '+healthSource():'Подключи системный источник шагов'}</span></div>
+          <button>${health?'Подключено ✓':'Подключить ›'}</button>
         </div>
-        <div class="rv-setting rv-setting-neon" data-open="backupModal">
-          <div class="rv-setting-icon">☁</div>
-          <div class="rv-setting-main"><b>Резервная копия</b><span>Цели, привычки, история, фото и настройки</span></div>
+        <div class="rv-target-setting" data-open="backupModal">
+          <div class="rv-target-setting-icon">${rvUiIcon('cloud')}</div>
+          <div class="rv-target-setting-copy"><b>Резервная копия</b><span>Цели, привычки, история, фото и настройки</span></div>
           <button>Открыть ›</button>
         </div>
       </div>
     </div>
 
-    <section class="rv-profile-footer rv-profile-footer-neon">
-      <div class="rv-profile-footer-copy"><b>RIVAYA 3.2</b><span>Цели · привычки · реальные шаги · прогресс</span></div>
-      <div class="rv-profile-author-neon">
+    <section class="rv-target-profile-footer">
+      <div class="rv-target-footer-copy"><b>RIVAYA 3.3</b><span>Цели · привычки · реальные шаги · прогресс</span></div>
+      <div class="rv-target-author">
         <span>Автор</span>
-        <button class="rv-instagram-link" data-external="https://www.instagram.com/_isma_guder_/">
-          <i class="rv-instagram-icon">◎</i><strong>@_isma_guder_</strong><em>↗</em>
+        <button class="rv-target-instagram" data-external="https://www.instagram.com/_isma_guder_/">
+          <span class="ig">${rvUiIcon('instagram')}</span><strong>@_isma_guder_</strong><span class="ext">${rvUiIcon('external')}</span>
         </button>
       </div>
     </section>
