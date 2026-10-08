@@ -22,12 +22,25 @@ import java.util.concurrent.TimeUnit;
 public class AppSmokeTest {
     private static final String PACKAGE = "app.rivaya.smart01";
 
+    private static boolean awaitPage(ActivityScenario<MainActivity> scenario, String predicate) throws Exception {
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(15);
+        while (System.nanoTime() < deadline) {
+            CountDownLatch evaluated = new CountDownLatch(1);
+            boolean[] ready = {false};
+            scenario.onActivity(a -> a.getWebViewForTesting().evaluateJavascript(
+                predicate, value -> {ready[0]="true".equals(value);evaluated.countDown();}));
+            if (evaluated.await(2,TimeUnit.SECONDS) && ready[0]) return true;
+            Thread.sleep(200);
+        }
+        return false;
+    }
+
     @Test
     public void allFourScreensFitAndProgressPeriodsWork() throws Exception {
         UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
         Context c = InstrumentationRegistry.getInstrumentation().getTargetContext();
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
-            Thread.sleep(1800);
+            assertTrue("WebView did not become ready", awaitPage(scenario,"document.readyState===\"complete\" && typeof render===\"function\""));
             androidx.test.uiautomator.UiObject2 tutorial = device.findObject(androidx.test.uiautomator.By.text("Got it"));
             if (tutorial != null) tutorial.click();
             device.waitForIdle();
@@ -55,7 +68,7 @@ public class AppSmokeTest {
     @Test
     public void invalidBackupDoesNotEraseLiveState() throws Exception {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
-            Thread.sleep(1800);
+            assertTrue("WebView did not become ready", awaitPage(scenario,"document.readyState===\"complete\" && typeof render===\"function\""));
             CountDownLatch done = new CountDownLatch(1);
             boolean[] ok = {false};
             scenario.onActivity(a -> a.getWebViewForTesting().evaluateJavascript(
@@ -82,14 +95,10 @@ public class AppSmokeTest {
         UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
 
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
-            Thread.sleep(1800);
+            assertTrue("WebView did not become ready", awaitPage(scenario,"document.readyState===\"complete\" && typeof render===\"function\""));
 
-            CountDownLatch ready = new CountDownLatch(1);
-            final boolean[] homeOk = {false};
-            scenario.onActivity(activity -> activity.getWebViewForTesting().evaluateJavascript(
-                    "document.readyState === 'complete' && document.body.innerText.includes('Сегодня') && document.body.innerText.includes('Привычки') && !!document.querySelector('.rv-target-add-habit') && !!document.querySelector('.rv-target-focus-card')",
-                    value -> { homeOk[0] = "true".equals(value); ready.countDown(); }));
-            assertTrue("Today screen did not render", ready.await(10, TimeUnit.SECONDS) && homeOk[0]);
+            assertTrue("Today screen did not render", awaitPage(scenario,
+                "document.body.innerText.includes('Сегодня') && document.body.innerText.includes('Привычки') && !!document.querySelector('.rv-target-add-habit') && !!document.querySelector('.rv-target-focus-card')"));
 
             CountDownLatch scrollReset = new CountDownLatch(1);
             final boolean[] scrollResetOk = {false};
