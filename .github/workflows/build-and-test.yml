@@ -1,4 +1,4 @@
-name: Build and test RIVAYA 3.0
+name: Build and test RIVAYA 4
 
 on:
   workflow_dispatch:
@@ -40,7 +40,7 @@ jobs:
 
       - name: Build debug APK and test APK
         working-directory: rivaya-next
-        run: gradle :app:assembleDebug :app:assembleDebugAndroidTest --stacktrace
+        run: gradle :app:assembleDebug :app:assembleDebugAndroidTest :app:lintDebug --stacktrace
 
       - name: Enable KVM
         run: |
@@ -61,14 +61,14 @@ jobs:
 
       - name: Prepare tested APK
         if: success()
-        run: cp rivaya-next/app/build/outputs/apk/debug/app-debug.apk RIVAYA-3.0-CLEAN-TESTED.apk
+        run: cp rivaya-next/app/build/outputs/apk/debug/app-debug.apk RIVAYA-4.0.1-RC2-TESTED.apk
 
       - name: Upload tested APK
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: RIVAYA-3.1-PREMIUM-TESTED
-          path: RIVAYA-3.0-CLEAN-TESTED.apk
+          name: RIVAYA-4.0.1-RC2-TESTED
+          path: RIVAYA-4.0.1-RC2-TESTED.apk
           if-no-files-found: error
 
       - name: Prepare Android signing tools

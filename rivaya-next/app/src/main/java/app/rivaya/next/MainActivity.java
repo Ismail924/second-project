@@ -34,18 +34,17 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
 
-public class MainActivity extends Activity implements SensorEventListener {
+public class MainActivity extends androidx.activity.ComponentActivity {
     private static final int FILE_CHOOSER_REQUEST = 4201;
     private static final int ACTIVITY_RECOGNITION_REQUEST = 4202;
     private static final int NOTIFICATION_REQUEST = 4203;
     private static final int BACKUP_CREATE_REQUEST = 4301;
     private static final int BACKUP_OPEN_REQUEST = 4302;
 
+    private boolean pendingTestNotification;
     private WebView webView;
     private ValueCallback<Uri[]> filePathCallback;
-    private SensorManager sensorManager;
-    private Sensor stepCounterSensor;
-    private volatile int stepsToday = 0;
+    private HealthSteps healthSteps;
     private String pendingBackupJson = null;
     private final SimpleDateFormat dayFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.US);
 
@@ -102,7 +101,8 @@ public class MainActivity extends Activity implements SensorEventListener {
         webView.post(this::hideNavigationBar);
         webView.loadUrl("file:///android_asset/index.html");
 
-        initStepCounter();
+        healthSteps = new HealthSteps(this, payload -> runOnUiThread(() ->
+                webView.evaluateJavascript("window.vektorOnNativeSteps && window.vektorOnNativeSteps(" + JSONObject.quote(payload) + ")", null)));
     }
 
     public WebView getWebViewForTesting() {
@@ -138,42 +138,14 @@ public class MainActivity extends Activity implements SensorEventListener {
     protected void onResume() {
         super.onResume();
         hideNavigationBar();
-        registerStepSensorIfAllowed();
+        if (healthSteps != null) healthSteps.refresh();
     }
 
     @Override
-    protected void onPause() {
-        super.onPause();
-        if (sensorManager != null) sensorManager.unregisterListener(this);
-    }
-
-    private void initStepCounter() {
-        sensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
-        if (sensorManager != null) {
-            stepCounterSensor = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_COUNTER);
-        }
-        registerStepSensorIfAllowed();
-    }
-
-    private boolean hasActivityPermission() {
-        return Build.VERSION.SDK_INT < Build.VERSION_CODES.Q
-                || checkSelfPermission(Manifest.permission.ACTIVITY_RECOGNITION) == PackageManager.PERMISSION_GRANTED;
-    }
-
-    private void registerStepSensorIfAllowed() {
-        if (sensorManager == null || stepCounterSensor == null || !hasActivityPermission()) return;
-        sensorManager.unregisterListener(this);
-        sensorManager.registerListener(this, stepCounterSensor, SensorManager.SENSOR_DELAY_NORMAL);
-    }
-
-    private void requestActivityPermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
-                && checkSelfPermission(Manifest.permission.ACTIVITY_RECOGNITION) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[]{Manifest.permission.ACTIVITY_RECOGNITION}, ACTIVITY_RECOGNITION_REQUEST);
-        } else {
-            registerStepSensorIfAllowed();
-            pushStepsToWeb();
-        }
+    protected void onDestroy() {
+        if (healthSteps != null) healthSteps.close();
+        if (filePathCallback != null) filePathCallback.onReceiveValue(null);
+        super.onDestroy();
     }
 
     private void requestNotificationPermission() {
@@ -186,50 +158,10 @@ public class MainActivity extends Activity implements SensorEventListener {
     @Override
     public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        if (requestCode == ACTIVITY_RECOGNITION_REQUEST) {
-            registerStepSensorIfAllowed();
-            pushStepsToWeb();
-        }
-    }
-
-    @Override
-    public void onSensorChanged(SensorEvent event) {
-        if (event.sensor.getType() != Sensor.TYPE_STEP_COUNTER) return;
-
-        float raw = event.values[0];
-        String today = dayFormat.format(new Date());
-        SharedPreferences prefs = getSharedPreferences("rivaya_steps", MODE_PRIVATE);
-        String savedDay = prefs.getString("day", "");
-        float baseline = prefs.getFloat("baseline", -1f);
-
-        if (!today.equals(savedDay) || baseline < 0f || raw < baseline) {
-            baseline = raw;
-            prefs.edit().putString("day", today).putFloat("baseline", baseline).apply();
-        }
-
-        stepsToday = Math.max(0, Math.round(raw - baseline));
-        pushStepsToWeb();
-    }
-
-    @Override
-    public void onAccuracyChanged(Sensor sensor, int accuracy) {
-    }
-
-    private void pushStepsToWeb() {
-        if (webView == null) return;
-        String status;
-        if (stepCounterSensor == null) status = "unsupported";
-        else if (!hasActivityPermission()) status = "denied";
-        else status = "granted";
-
-        try {
-            JSONObject payload = new JSONObject();
-            payload.put("status", status);
-            payload.put("steps", status.equals("granted") ? stepsToday : 0);
-            payload.put("history", new int[]{0, 0, 0, 0, 0, 0, status.equals("granted") ? stepsToday : 0});
-            String quoted = JSONObject.quote(payload.toString());
-            runOnUiThread(() -> webView.evaluateJavascript("window.vektorOnNativeSteps && window.vektorOnNativeSteps(" + quoted + ")", null));
-        } catch (Exception ignored) {
+        if (requestCode == NOTIFICATION_REQUEST && grantResults.length > 0
+                && grantResults[0] == PackageManager.PERMISSION_GRANTED && pendingTestNotification) {
+            pendingTestNotification = false;
+            ReminderScheduler.showNotification(this, "RIVAYA", "Пора сделать маленький шаг к своей цели ✦");
         }
     }
 
@@ -288,21 +220,17 @@ public class MainActivity extends Activity implements SensorEventListener {
     public final class NativeBridge {
         @JavascriptInterface
         public void refreshSteps() {
-            pushStepsToWeb();
+            runOnUiThread(() -> { if (healthSteps != null) healthSteps.refresh(); });
         }
 
         @JavascriptInterface
         public void requestStepAccess() {
-            runOnUiThread(MainActivity.this::requestActivityPermission);
+            runOnUiThread(() -> { if (healthSteps != null) healthSteps.requestAccess(); });
         }
 
         @JavascriptInterface
         public void openHealthSettings() {
-            runOnUiThread(() -> {
-                Intent intent = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                        Uri.parse("package:" + getPackageName()));
-                startActivity(intent);
-            });
+            runOnUiThread(() -> { if (healthSteps != null) healthSteps.openSettings(); });
         }
 
         @JavascriptInterface
@@ -348,7 +276,11 @@ public class MainActivity extends Activity implements SensorEventListener {
         @JavascriptInterface
         public void testNotification() {
             runOnUiThread(() -> {
-                requestNotificationPermission();
+                if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                    pendingTestNotification = true;
+                    requestNotificationPermission();
+                    return;
+                }
                 ReminderScheduler.showNotification(MainActivity.this, "RIVAYA", "Пора сделать маленький шаг к своей цели ✦");
             });
         }

@@ -34,6 +34,7 @@ final class ReminderScheduler {
     }
 
     static void configureItems(Context context,String json){
+        try { new JSONArray(json==null?"[]":json); } catch(Exception invalid) { return; }
         SharedPreferences prefs=context.getSharedPreferences(PREFS,Context.MODE_PRIVATE);cancelItems(context,prefs.getString(ITEMS_JSON,"[]"));
         for(int i=0;i<3;i++)cancelLegacy(context,i);
         prefs.edit().putBoolean("enabled",false).putString(ITEMS_JSON,json==null?"[]":json).apply();
@@ -47,14 +48,28 @@ final class ReminderScheduler {
     }
 
     static void scheduleNext(Context context,int slot){SharedPreferences prefs=context.getSharedPreferences(PREFS,Context.MODE_PRIVATE);if(!prefs.getBoolean("enabled",false))return;int h=prefs.getInt("h"+slot,-1),m=prefs.getInt("m"+slot,-1);if(h>=0&&m>=0)scheduleLegacy(context,slot,h,m);}
-    static void scheduleNextItem(Context context,Intent received){try{JSONObject item=new JSONObject();item.put("id",received.getStringExtra("itemId"));item.put("title",received.getStringExtra("title"));item.put("body",received.getStringExtra("body"));item.put("time",received.getStringExtra("time"));item.put("weekdaysOnly",received.getBooleanExtra("weekdaysOnly",false));scheduleItem(context,item);}catch(Exception ignored){}}
+    static void scheduleNextItem(Context context,Intent received){
+        JSONObject item = currentItem(context, received.getStringExtra("itemId"));
+        if (item != null) scheduleItem(context, item);
+    }
+    static JSONObject currentItem(Context context, String id) {
+        try {
+            JSONArray items = new JSONArray(context.getSharedPreferences(PREFS,Context.MODE_PRIVATE).getString(ITEMS_JSON,"[]"));
+            for(int n=0;n<items.length();n++) if(items.getJSONObject(n).optString("id").equals(id)) return items.getJSONObject(n);
+        } catch(Exception ignored) {}
+        return null;
+    }
+    static boolean withinTerm(JSONObject item, long timestamp) {
+        String end = item.optString("endDate", "");
+        return end.isEmpty() || new java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(new java.util.Date(timestamp)).compareTo(end) <= 0;
+    }
 
     private static void scheduleLegacy(Context c,int slot,int h,int m){AlarmManager a=(AlarmManager)c.getSystemService(Context.ALARM_SERVICE);if(a!=null)setAlarm(a,nextTime(h,m,false).getTimeInMillis(),legacyPendingIntent(c,slot));}
-    private static void scheduleItem(Context c,JSONObject item){try{String id=item.optString("id",""),time=item.optString("time","");if(id.isEmpty()||!time.matches("\\d{2}:\\d{2}"))return;String[] p=time.split(":");boolean weekdays=item.optBoolean("weekdaysOnly",false);AlarmManager a=(AlarmManager)c.getSystemService(Context.ALARM_SERVICE);if(a==null)return;Intent i=new Intent(c,ReminderReceiver.class);i.setAction("app.rivaya.smart01.ITEM_REMINDER");i.putExtra("itemReminder",true);i.putExtra("itemId",id);i.putExtra("title",item.optString("title","RIVAYA"));i.putExtra("body",item.optString("body","Пора сделать следующий шаг."));i.putExtra("time",time);i.putExtra("weekdaysOnly",weekdays);PendingIntent pi=PendingIntent.getBroadcast(c,itemRequestCode(id),i,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);setAlarm(a,nextTime(Integer.parseInt(p[0]),Integer.parseInt(p[1]),weekdays).getTimeInMillis(),pi);}catch(Exception ignored){}}
+    private static void scheduleItem(Context c,JSONObject item){try{String id=item.optString("id",""),time=item.optString("time","");if(id.isEmpty()||!time.matches("([01]\\d|2[0-3]):[0-5]\\d"))return;String[] p=time.split(":");boolean weekdays=item.optBoolean("weekdaysOnly",false);AlarmManager a=(AlarmManager)c.getSystemService(Context.ALARM_SERVICE);if(a==null)return;Intent i=new Intent(c,ReminderReceiver.class);i.setAction("app.rivaya.smart01.ITEM_REMINDER");i.setData(android.net.Uri.parse("rivaya://reminder/"+android.net.Uri.encode(id)));i.putExtra("itemReminder",true);i.putExtra("itemId",id);i.putExtra("title",item.optString("title","RIVAYA"));i.putExtra("body",item.optString("body","Пора сделать следующий шаг."));i.putExtra("time",time);i.putExtra("weekdaysOnly",weekdays);PendingIntent pi=PendingIntent.getBroadcast(c,itemRequestCode(id),i,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);long when=nextTime(Integer.parseInt(p[0]),Integer.parseInt(p[1]),weekdays).getTimeInMillis();if(withinTerm(item,when))setAlarm(a,when,pi);}catch(Exception ignored){}}
     private static Calendar nextTime(int h,int m,boolean weekdays){Calendar cal=Calendar.getInstance();cal.set(Calendar.HOUR_OF_DAY,h);cal.set(Calendar.MINUTE,m);cal.set(Calendar.SECOND,0);cal.set(Calendar.MILLISECOND,0);if(cal.getTimeInMillis()<=System.currentTimeMillis())cal.add(Calendar.DAY_OF_YEAR,1);if(weekdays)while(cal.get(Calendar.DAY_OF_WEEK)==Calendar.SATURDAY||cal.get(Calendar.DAY_OF_WEEK)==Calendar.SUNDAY)cal.add(Calendar.DAY_OF_YEAR,1);return cal;}
     private static void setAlarm(AlarmManager a,long when,PendingIntent pi){if(Build.VERSION.SDK_INT>=Build.VERSION_CODES.M){if(Build.VERSION.SDK_INT<Build.VERSION_CODES.S||a.canScheduleExactAlarms())a.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,when,pi);else a.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP,when,pi);}else a.setExact(AlarmManager.RTC_WAKEUP,when,pi);}
     private static void cancelItems(Context c,String json){try{JSONArray arr=new JSONArray(json==null?"[]":json);AlarmManager a=(AlarmManager)c.getSystemService(Context.ALARM_SERVICE);if(a==null)return;for(int i=0;i<arr.length();i++){String id=arr.getJSONObject(i).optString("id","");if(!id.isEmpty())a.cancel(itemPendingIntent(c,id));}}catch(Exception ignored){}}
-    private static PendingIntent itemPendingIntent(Context c,String id){Intent i=new Intent(c,ReminderReceiver.class);i.setAction("app.rivaya.smart01.ITEM_REMINDER");return PendingIntent.getBroadcast(c,itemRequestCode(id),i,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);}
+    private static PendingIntent itemPendingIntent(Context c,String id){Intent i=new Intent(c,ReminderReceiver.class);i.setAction("app.rivaya.smart01.ITEM_REMINDER");i.setData(android.net.Uri.parse("rivaya://reminder/"+android.net.Uri.encode(id)));return PendingIntent.getBroadcast(c,itemRequestCode(id),i,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);}
     private static int itemRequestCode(String id){return 20000+(id.hashCode()&0x3fffffff);}
     private static void cancelLegacy(Context c,int slot){AlarmManager a=(AlarmManager)c.getSystemService(Context.ALARM_SERVICE);if(a!=null)a.cancel(legacyPendingIntent(c,slot));}
     private static PendingIntent legacyPendingIntent(Context c,int slot){Intent i=new Intent(c,ReminderReceiver.class);i.setAction("app.rivaya.next.REMINDER");i.putExtra("slot",slot);return PendingIntent.getBroadcast(c,7000+slot,i,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);}
