@@ -369,3 +369,27 @@ html.rv-android body{padding-bottom:0!important}
   }
   .rv-profile-footer-neon{margin-bottom:18px!important}
 }
+
+/* RIVAYA 3.2.2 — bottom nav geometry fix */
+.view{padding-bottom:178px!important}
+.rv-bottom-nav.bottom-nav{
+  left:50%!important;
+  right:auto!important;
+  width:min(calc(100% - 28px),760px)!important;
+  transform:translateX(-50%)!important;
+  bottom:10px!important;
+  min-height:80px!important;
+  padding:7px!important;
+}
+.rv-bottom-nav .nav-item{min-width:0!important;min-height:64px!important}
+.rv-profile-footer-neon{margin-bottom:18px!important}
+@media(max-width:420px){
+  .view{padding:14px 14px 178px!important}
+  .rv-bottom-nav.bottom-nav{
+    left:50%!important;
+    right:auto!important;
+    width:calc(100% - 28px)!important;
+    transform:translateX(-50%)!important;
+    bottom:10px!important;
+  }
+}
