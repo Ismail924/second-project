@@ -23,6 +23,31 @@ public class AppSmokeTest {
     private static final String PACKAGE = "app.rivaya.smart01";
 
     @Test
+    public void invalidBackupDoesNotEraseLiveState() throws Exception {
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            Thread.sleep(1800);
+            CountDownLatch done = new CountDownLatch(1);
+            boolean[] ok = {false};
+            scenario.onActivity(a -> a.getWebViewForTesting().evaluateJavascript(
+                "(()=>{const before=localStorage.getItem(STORAGE_KEY);let rejected=false;try{restoreBackupText(JSON.stringify({habits:[{name:'broken'}],goals:[],checks:{}}))}catch(e){rejected=true}return rejected&&before===localStorage.getItem(STORAGE_KEY)})()",
+                value -> {ok[0]="true".equals(value);done.countDown();}));
+            assertTrue("Invalid backup changed live data", done.await(10,TimeUnit.SECONDS)&&ok[0]);
+        }
+    }
+
+    @Test
+    public void expiredReminderDoesNotResurrectAndIdsDoNotCollide() throws Exception {
+        Context c = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        org.json.JSONObject expired = new org.json.JSONObject().put("endDate","2000-01-01");
+        assertTrue("Expired reminder still eligible", !ReminderScheduler.withinTerm(expired,System.currentTimeMillis()));
+        assertTrue("Open-ended reminder rejected", ReminderScheduler.withinTerm(new org.json.JSONObject(),System.currentTimeMillis()));
+        // Java String hash collision; alarms must additionally identify items by URI.
+        ReminderScheduler.configureItems(c,"[{\"id\":\"Aa\",\"title\":\"One\",\"time\":\"12:00\"},{\"id\":\"BB\",\"title\":\"Two\",\"time\":\"12:00\"}]");
+        assertNotEquals(ReminderScheduler.itemPendingIntent(c,"Aa"),ReminderScheduler.itemPendingIntent(c,"BB"));
+        ReminderScheduler.configureItems(c,"[]");
+    }
+
+    @Test
     public void appLaunchesProfileRendersAndAvatarPickerOpens() throws Exception {
         UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
 
