@@ -1086,21 +1086,69 @@ function rvTodayHabitRow(h){
 }
 
 renderToday=function(){
-  const planned=scheduledHabitsToday();const done=completedToday();const p=pct();const focus=nextFocusHabit();const goal=nearestGoal();const streak=rvDaysWithActivityStreak();const insight=rvInsight(p,planned.length,done);
-  const dots=planned.slice(0,6).map(h=>`<span class="rv-dot ${doneToday(h.id)?'done':''}">${doneToday(h.id)?'✓':''}</span>`).join('');
-  const habitRows=planned.slice(0,6).map(rvTodayHabitRow).join('');
-  const focusTitle=focus?esc(focus.name):(planned.length?'На сегодня всё выполнено ✓':'Добавь первую привычку');
-  const focusSub=focus?(focus.reminderEnabled&&focus.reminderTime?`Напоминание в ${esc(focus.reminderTime)}`:'Следующее невыполненное действие'):(planned.length?'Можно перейти к цели или отдыху.':'Начни с одного небольшого действия, которое легко повторять.');
-  const goalHtml=goal?`<section class="rv-goal-compact" data-nav="goals"><div class="rv-mini-title">⚑ Ближайшая цель</div><h3>${esc(goal.name)}</h3><small>${daysLeft(goal.deadline)} · ${goalPct(goal)}%</small><div class="rv-mini-progress"><i style="width:${goalPct(goal)}%"></i></div></section>`:`<section class="rv-goal-compact" data-open="goalModal"><div class="rv-mini-title">⚑ Ближайшая цель</div><h3>Создай первую цель</h3><small>Привяжи к ней привычки и отслеживай движение.</small><div class="rv-mini-progress"><i style="width:0%"></i></div></section>`;
-  const stepsHtml=activityConnected()?`<section class="rv-steps-compact" data-nav="activity"><div class="rv-mini-title">⌁ Шаги сегодня</div><div class="rv-steps-number">${fmtNum(state.activity.steps)}</div><small>из ${fmtNum(state.activity.stepGoal)}</small><div class="rv-steptrend">${stepPct()}% дневной цели</div><div class="rv-mini-progress"><i style="width:${stepPct()}%"></i></div></section>`:`<section class="rv-steps-compact" data-health-access><div class="rv-mini-title">⌁ Шаги сегодня</div><div class="rv-steps-number">0</div><small>Доступ не включён</small><div class="rv-steptrend">Подключить Health Connect →</div></section>`;
-  return `<div class="rv-screen">
+  const planned=scheduledHabitsToday();
+  const done=completedToday();
+  const p=pct();
+  const focus=nextFocusHabit();
+  const goal=nearestGoal();
+  const streak=rvDaysWithActivityStreak();
+  const weekly=weeklySummary();
+  const insight=rvInsight(p,planned.length,done);
+  const habitRows=planned.slice(0,5).map(rvTodayHabitRow).join('');
+
+  const focusTitle=focus
+    ? esc(focus.name)
+    : (planned.length ? 'На сегодня всё выполнено ✓' : 'Создай первый маленький шаг');
+  const focusSub=focus
+    ? (focus.reminderEnabled&&focus.reminderTime ? `Напоминание в ${esc(focus.reminderTime)}` : 'Следующее невыполненное действие')
+    : (planned.length ? 'Можно спокойно перейти к цели или отдыху.' : 'Добавь привычку, которую реально повторять каждый день.');
+
+  const goalHtml=goal
+    ? `<section class="rv-goal-compact rv-tap-card" data-nav="goals"><div class="rv-mini-title">Ближайшая цель</div><h3>${esc(goal.name)}</h3><small>${daysLeft(goal.deadline)} · ${goalPct(goal)}%</small><div class="rv-mini-progress"><i style="width:${goalPct(goal)}%"></i></div><span class="rv-card-arrow">›</span></section>`
+    : `<section class="rv-goal-compact rv-tap-card" data-open="goalModal"><div class="rv-mini-title">Ближайшая цель</div><h3>Добавить цель</h3><small>Свяжи цель с ежедневными действиями.</small><span class="rv-card-arrow">＋</span></section>`;
+
+  const stepsHtml=activityConnected()
+    ? `<section class="rv-steps-compact rv-tap-card" data-nav="activity"><div class="rv-mini-title">Шаги сегодня</div><div class="rv-steps-number">${fmtNum(state.activity.steps)}</div><small>из ${fmtNum(state.activity.stepGoal)} · ${stepDistance()} км</small><div class="rv-steptrend">${stepPct()}% дневной цели</div><div class="rv-mini-progress"><i style="width:${stepPct()}%"></i></div><span class="rv-card-arrow">›</span></section>`
+    : `<section class="rv-steps-compact rv-tap-card" data-health-access><div class="rv-mini-title">Шаги сегодня</div><div class="rv-steps-number">—</div><small>Доступ к шагам не включён</small><div class="rv-steptrend">Подключить реальные шаги →</div><span class="rv-card-arrow">›</span></section>`;
+
+  const dayStatus=planned.length
+    ? `${done} из ${planned.length} выполнено`
+    : 'День пока пустой';
+
+  return `<div class="rv-screen rv-home-v31">
     <div class="rv-title-row"><div><h1>Сегодня</h1><div class="rv-date">${ruDate()}</div></div><div class="rv-streak"><span class="rv-fire">◆</span><div><b>${streak}</b><br>дн. серия</div></div></div>
-    <section class="rv-progress-card"><div class="rv-ring" style="--p:${p}"><div><strong>${done} из ${planned.length}</strong><span>выполнено</span></div></div><div class="rv-progress-copy"><h2>${p===100&&planned.length?'Отличный день!':planned.length?'Двигайся по одному шагу':'Твой день начинается здесь'}</h2><p>${planned.length?`Осталось ${Math.max(0,planned.length-done)} привычки на сегодня`:'Добавь привычку или цель — без демонстрационных данных.'}</p><div class="rv-dots">${dots||'<span class="rv-dot"></span><span class="rv-dot"></span><span class="rv-dot"></span>'}</div></div></section>
-    <section class="rv-focus" ${focus?'data-check="'+focus.id+'"':'data-open="habitModal"'}><div class="rv-eyebrow">✦ Фокус дня</div><h2>${focusTitle}</h2><p>${focusSub}</p><button class="rv-arrow" aria-label="Открыть">›</button></section>
-    <section class="rv-section"><div class="rv-section-head"><h2>Сегодняшние привычки</h2><button data-nav="habits">${planned.length?done+' из '+planned.length:'Все'} ›</button></div><div class="rv-habits">${habitRows||`<div class="rv-empty">Пока на сегодня ничего не запланировано.<div class="rv-empty-actions"><button class="secondary" data-open="habitModal">+ Добавить привычку</button></div></div>`}</div></section>
+
+    <section class="rv-day-hero">
+      <div class="rv-day-ring" style="--p:${p}"><div><strong>${p}%</strong><span>${dayStatus}</span></div></div>
+      <div class="rv-day-focus" ${focus?'data-check="'+focus.id+'"':'data-open="habitModal"'}>
+        <div class="rv-eyebrow">ФОКУС ДНЯ</div>
+        <h2>${focusTitle}</h2>
+        <p>${focusSub}</p>
+        <div class="rv-day-meta">
+          <span>✓ ${done}/${planned.length}</span>
+          <span>⌁ ${activityConnected()?fmtNum(state.activity.steps):'шаги'}</span>
+        </div>
+      </div>
+      <button class="rv-day-arrow" ${focus?'data-check="'+focus.id+'"':'data-open="habitModal"'} aria-label="Открыть">›</button>
+    </section>
+
+    <section class="rv-section rv-habits-card">
+      <div class="rv-section-head"><div><div class="rv-section-kicker">СЕГОДНЯ</div><h2>Привычки</h2></div><button data-nav="habits">${planned.length?done+' из '+planned.length:'Все'} ›</button></div>
+      <div class="rv-habits">${habitRows||`<div class="rv-empty rv-empty-premium"><b>Пока нет привычек на сегодня</b><span>Добавь одну небольшую привычку — этого достаточно, чтобы начать.</span><button class="primary2" data-open="habitModal">+ Добавить привычку</button></div>`}</div>
+      ${planned.length>5?'<button class="rv-show-all" data-nav="habits">Показать остальные привычки ›</button>':''}
+    </section>
+
     <div class="rv-two">${goalHtml}${stepsHtml}</div>
-    <section class="rv-insight"><div class="rv-insight-icon">✦</div><div><b>${insight.title}</b><p>${insight.text}</p></div></section>
-    <div class="rv-quickbar"><button class="habit" data-open="habitModal">+ Привычка</button><button class="goal" data-open="goalModal">+ Цель</button></div>
+
+    <section class="rv-week-pulse">
+      <div class="rv-week-pulse-icon">✦</div>
+      <div class="rv-week-pulse-copy"><span>НЕДЕЛЯ</span><b>${weekly.target?weekly.p+'% выполнения':'Собираем первые данные'}</b><small>${weekly.done} из ${weekly.target} привычек · ${weekly.steps?fmtNum(weekly.steps)+' шагов':'шаги появятся после подключения'}</small></div>
+      <div class="rv-week-pulse-score">${weekly.target?weekly.p:'—'}</div>
+    </section>
+
+    <section class="rv-insight rv-insight-premium"><div class="rv-insight-icon">✦</div><div><b>${insight.title}</b><p>${insight.text}</p></div></section>
+
+    <div class="rv-quickbar rv-quickbar-sticky"><button class="habit" data-open="habitModal">+ Привычка</button><button class="goal" data-open="goalModal">+ Цель</button></div>
   </div>`;
 };
 
@@ -1144,21 +1192,55 @@ function renderProgress(){
 }
 
 renderProfile=function(){
-  const name=state.profile?.name||'Пользователь';const streak=rvDaysWithActivityStreak();const w=weeklySummary();const health=activityConnected();const hasAvatar=!!state.profile?.avatarData;
-  return `<div class="rv-screen">
-    <div class="rv-title-row"><div><h1>Профиль</h1><div class="rv-date">Ваше развитие — в ваших руках</div></div></div>
-    <section class="rv-profile-hero"><button class="rv-avatar-big rv-avatar-button" data-avatar-pick aria-label="Изменить фото профиля">${rvAvatarMarkup(name)}<i class="rv-avatar-camera">＋</i></button><div class="rv-profile-copy"><h2>${esc(name)}</h2><p>Маленькие шаги создают большие перемены.</p><button class="rv-photo-link" data-avatar-pick>${hasAvatar?'Изменить фото':'Добавить фото'}</button>${hasAvatar?`<button class="rv-photo-link muted" data-avatar-remove>Удалить</button>`:''}</div></section>
-    <section class="rv-stat-strip"><div><b>${streak}</b><span>дней серия</span></div><div><b>${w.done}</b><span>выполнений за неделю</span></div><div><b>${health?fmtNum(state.activity.steps):'—'}</b><span>шагов сегодня</span></div></section>
-    <div class="rv-settings">
-      <div class="rv-setting" data-avatar-pick><div class="rv-setting-icon">◉</div><div class="rv-setting-main"><b>Фото профиля</b><span>${hasAvatar?'Фото сохранено на этом устройстве':'Выберите фото из галереи или камеры'}</span></div><button>${hasAvatar?'Изменить':'Добавить'} ›</button></div>
-      <div class="rv-setting" data-open="onboardingModal"><div class="rv-setting-icon">✦</div><div class="rv-setting-main"><b>Имя и цель по шагам</b><span>${esc(name)} · персональные настройки</span></div><button>Изменить ›</button></div>
-      <div class="rv-setting" data-open="reminderModal"><div class="rv-setting-icon">◉</div><div class="rv-setting-main"><b>Уведомления</b><span>${esc(smartReminderSummary())}</span></div><button>Настроить ›</button></div>
-      <div class="rv-setting" data-open="reminderModal"><div class="rv-setting-icon">◒</div><div class="rv-setting-main"><b>Тихий режим</b><span>Без уведомлений в выбранное время</span></div><div class="rv-setting-value">${state.reminders?.quietEnabled?`${state.reminders.quietStart}–${state.reminders.quietEnd}`:'Выкл.'}</div></div>
-      <div class="rv-setting" ${health?'data-health-manage':'data-health-access'}><div class="rv-setting-icon">♥</div><div class="rv-setting-main"><b>Интеграция со здоровьем</b><span>Автоматические реальные шаги</span></div><div class="rv-setting-value">${health?'Подключено ✓':'Подключить ›'}</div></div>
-      <div class="rv-setting" data-open="backupModal"><div class="rv-setting-icon">☁</div><div class="rv-setting-main"><b>Резервная копия</b><span>Сохрани цели, привычки, историю, фото и настройки</span></div><button>Открыть ›</button></div>
-      <div class="rv-setting" data-fullscreen><div class="rv-setting-icon">↗</div><div class="rv-setting-main"><b>Полноэкранный режим</b><span>Попытаться скрыть нижнюю системную панель Android</span></div><button>Включить ›</button></div>
+  const name=state.profile?.name||'Пользователь';
+  const streak=rvDaysWithActivityStreak();
+  const w=weeklySummary();
+  const health=activityConnected();
+  const hasAvatar=!!state.profile?.avatarData;
+  const avatarStatus=hasAvatar?'Фото установлено':'Добавь фото профиля';
+
+  return `<div class="rv-screen rv-profile-v31">
+    <div class="rv-title-row"><div><h1>Профиль</h1><div class="rv-date">Твои настройки и данные RIVAYA</div></div></div>
+
+    <section class="rv-profile-hero rv-profile-hero-v31">
+      <button class="rv-avatar-big rv-avatar-button" data-avatar-pick aria-label="Изменить фото профиля">${rvAvatarMarkup(name)}<i class="rv-avatar-camera">＋</i></button>
+      <div class="rv-profile-copy"><div class="rv-profile-badge">RIVAYA PROFILE</div><h2>${esc(name)}</h2><p>${avatarStatus} · данные хранятся на устройстве</p><div class="rv-profile-actions"><button class="rv-photo-link" data-avatar-pick>${hasAvatar?'Изменить фото':'Добавить фото'}</button><button class="rv-photo-link" data-open="onboardingModal">Изменить имя</button>${hasAvatar?'<button class="rv-photo-link muted" data-avatar-remove>Удалить фото</button>':''}</div></div>
+    </section>
+
+    <section class="rv-stat-strip rv-stat-strip-v31">
+      <div><b>${streak}</b><span>дней серия</span></div>
+      <div><b>${w.done}</b><span>выполнений за неделю</span></div>
+      <div><b>${health?fmtNum(state.activity.steps):'—'}</b><span>шагов сегодня</span></div>
+    </section>
+
+    <div class="rv-settings-group">
+      <div class="rv-settings-title">ПРОФИЛЬ</div>
+      <div class="rv-settings">
+        <div class="rv-setting" data-avatar-pick><div class="rv-setting-icon">◉</div><div class="rv-setting-main"><b>Фото профиля</b><span>${hasAvatar?'Нажми, чтобы заменить фотографию':'Выбрать фотографию из галереи'}</span></div><button>${hasAvatar?'Изменить':'Добавить'} ›</button></div>
+        <div class="rv-setting" data-open="onboardingModal"><div class="rv-setting-icon">✦</div><div class="rv-setting-main"><b>Имя и цель по шагам</b><span>${esc(name)} · ${fmtNum(state.activity.stepGoal)} шагов в день</span></div><button>Изменить ›</button></div>
+      </div>
     </div>
-    <section class="rv-free"><b>RIVAYA 2.1 · бесплатно</b><p>Профиль с фото, цели, привычки, реальные шаги, календарь, статистика, уведомления и резервная копия. Автор: @_isma_guder_.</p></section>
+
+    <div class="rv-settings-group">
+      <div class="rv-settings-title">РЕЖИМ И УВЕДОМЛЕНИЯ</div>
+      <div class="rv-settings">
+        <div class="rv-setting" data-open="reminderModal"><div class="rv-setting-icon">◷</div><div class="rv-setting-main"><b>Уведомления</b><span>${esc(smartReminderSummary())}</span></div><button>Настроить ›</button></div>
+        <div class="rv-setting" data-open="reminderModal"><div class="rv-setting-icon">☾</div><div class="rv-setting-main"><b>Тихий режим</b><span>Без уведомлений в выбранное время</span></div><div class="rv-setting-value">${state.reminders?.quietEnabled?`${state.reminders.quietStart}–${state.reminders.quietEnd}`:'Выкл.'}</div></div>
+      </div>
+    </div>
+
+    <div class="rv-settings-group">
+      <div class="rv-settings-title">ДАННЫЕ И ЗДОРОВЬЕ</div>
+      <div class="rv-settings">
+        <div class="rv-setting" ${health?'data-health-manage':'data-health-access'}><div class="rv-setting-icon">♥</div><div class="rv-setting-main"><b>Реальные шаги</b><span>${health?'Подключено: '+healthSource():'Подключи системный источник шагов'}</span></div><div class="rv-setting-value">${health?'Подключено ✓':'Подключить ›'}</div></div>
+        <div class="rv-setting" data-open="backupModal"><div class="rv-setting-icon">☁</div><div class="rv-setting-main"><b>Резервная копия</b><span>Цели, привычки, история, фото и настройки</span></div><button>Открыть ›</button></div>
+      </div>
+    </div>
+
+    <section class="rv-profile-footer">
+      <div><b>RIVAYA 3.1</b><span>Цели · привычки · реальные шаги · прогресс</span></div>
+      <div class="rv-profile-author">Автор @_isma_guder_</div>
+    </section>
   </div>`;
 };
 
@@ -1168,5 +1250,10 @@ render=function(){
   view.innerHTML=fn();
   const activeGroup=rvGroup(currentView);
   document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.nav===activeGroup));
+  const topAvatar=document.querySelector('.top-actions .avatar');
+  if(topAvatar){
+    topAvatar.innerHTML=rvAvatarMarkup(state.profile?.name||'Пользователь');
+    topAvatar.classList.toggle('has-photo',!!state.profile?.avatarData);
+  }
 };
 render();

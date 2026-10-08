@@ -21,17 +21,27 @@ public class AppSmokeTest {
     private static final String PACKAGE = "app.rivaya.next";
 
     @Test
-    public void appLaunchesAndAvatarPickerOpens() throws Exception {
+    public void appLaunchesProfileRendersAndAvatarPickerOpens() throws Exception {
         UiDevice device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
 
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             assertTrue(device.wait(Until.hasObject(By.pkg(PACKAGE).depth(0)), 15_000));
 
-            CountDownLatch latch = new CountDownLatch(1);
+            CountDownLatch ready = new CountDownLatch(1);
+            final boolean[] homeOk = {false};
             scenario.onActivity(activity -> activity.getWebViewForTesting().evaluateJavascript(
-                    "document.readyState + '|' + (!!window.rvOpenAvatarPicker || !!window.openAvatarPicker)",
-                    value -> latch.countDown()));
-            assertTrue("Web UI did not become ready", latch.await(10, TimeUnit.SECONDS));
+                    "document.body.innerText.includes('Сегодня') && document.body.innerText.includes('Привычки')",
+                    value -> { homeOk[0] = "true".equals(value); ready.countDown(); }));
+            assertTrue("Home UI did not become ready", ready.await(10, TimeUnit.SECONDS));
+            assertTrue("Today screen did not render", homeOk[0]);
+
+            CountDownLatch profile = new CountDownLatch(1);
+            final boolean[] profileOk = {false};
+            scenario.onActivity(activity -> activity.getWebViewForTesting().evaluateJavascript(
+                    "currentView='profile';render();document.body.innerText.includes('Профиль') && document.body.innerText.includes('Фото профиля')",
+                    value -> { profileOk[0] = "true".equals(value); profile.countDown(); }));
+            assertTrue("Profile UI did not become ready", profile.await(10, TimeUnit.SECONDS));
+            assertTrue("Profile screen did not render", profileOk[0]);
 
             scenario.onActivity(activity -> activity.getWebViewForTesting().evaluateJavascript(
                     "(window.rvOpenAvatarPicker || window.openAvatarPicker)()", null));

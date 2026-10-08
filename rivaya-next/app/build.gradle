@@ -10,8 +10,8 @@ android {
         applicationId "app.rivaya.next"
         minSdk 26
         targetSdk 35
-        versionCode 1
-        versionName "3.0.0-clean"
+        versionCode 2
+        versionName "3.1.0-premium"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
