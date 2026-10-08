@@ -10,8 +10,8 @@ android {
         applicationId "app.rivaya.smart01"
         minSdk 26
         targetSdk 35
-        versionCode 30100
-        versionName "3.1.0-premium"
+        versionCode 30200
+        versionName "3.2.0-neon"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 

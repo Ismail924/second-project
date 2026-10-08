@@ -28,14 +28,14 @@ public class AppSmokeTest {
             CountDownLatch ready = new CountDownLatch(1);
             final boolean[] homeOk = {false};
             scenario.onActivity(activity -> activity.getWebViewForTesting().evaluateJavascript(
-                    "document.readyState === 'complete' && document.body.innerText.includes('Сегодня') && document.body.innerText.includes('Привычки')",
+                    "document.readyState === 'complete' && document.body.innerText.includes('Сегодня') && document.body.innerText.includes('Привычки') && !!document.querySelector('.rv-premium-cta')",
                     value -> { homeOk[0] = "true".equals(value); ready.countDown(); }));
             assertTrue("Today screen did not render", ready.await(10, TimeUnit.SECONDS) && homeOk[0]);
 
             CountDownLatch profile = new CountDownLatch(1);
             final boolean[] profileOk = {false};
             scenario.onActivity(activity -> activity.getWebViewForTesting().evaluateJavascript(
-                    "currentView='profile';render();document.body.innerText.includes('Профиль') && document.body.innerText.includes('Фото профиля')",
+                    "currentView='profile';render();document.body.innerText.includes('Фото профиля') && document.body.innerText.includes('@_isma_guder_') && !!document.querySelector('[data-external]')",
                     value -> { profileOk[0] = "true".equals(value); profile.countDown(); }));
             assertTrue("Profile screen did not render", profile.await(10, TimeUnit.SECONDS) && profileOk[0]);
 

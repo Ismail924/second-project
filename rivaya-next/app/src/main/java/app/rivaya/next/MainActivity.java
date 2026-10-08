@@ -296,6 +296,19 @@ public class MainActivity extends Activity implements SensorEventListener {
         }
 
         @JavascriptInterface
+        public void openExternal(String url) {
+            if (url == null || url.trim().isEmpty()) return;
+            runOnUiThread(() -> {
+                try {
+                    Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+                    intent.addCategory(Intent.CATEGORY_BROWSABLE);
+                    startActivity(intent);
+                } catch (Exception ignored) {
+                }
+            });
+        }
+
+        @JavascriptInterface
         public String getPlatform() {
             return "android";
         }
