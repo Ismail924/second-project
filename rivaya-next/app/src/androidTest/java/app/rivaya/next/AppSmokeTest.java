@@ -18,7 +18,7 @@ import java.util.concurrent.TimeUnit;
 
 @RunWith(AndroidJUnit4.class)
 public class AppSmokeTest {
-    private static final String PACKAGE = "app.rivaya.next";
+    private static final String PACKAGE = "app.rivaya.smart01";
 
     @Test
     public void appLaunchesProfileRendersAndAvatarPickerOpens() throws Exception {

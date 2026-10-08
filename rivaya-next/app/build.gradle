@@ -7,10 +7,10 @@ android {
     compileSdk 35
 
     defaultConfig {
-        applicationId "app.rivaya.next"
+        applicationId "app.rivaya.smart01"
         minSdk 26
         targetSdk 35
-        versionCode 2
+        versionCode 30100
         versionName "3.1.0-premium"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }

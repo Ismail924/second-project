@@ -67,6 +67,22 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: RIVAYA-3.0-CLEAN-TESTED
+          name: RIVAYA-3.1-PREMIUM-TESTED
           path: RIVAYA-3.0-CLEAN-TESTED.apk
+          if-no-files-found: error
+
+      - name: Prepare Android signing tools
+        if: success()
+        run: |
+          mkdir -p android-sign-tools/lib
+          cp "$ANDROID_HOME/build-tools/35.0.0/apksigner" android-sign-tools/
+          cp "$ANDROID_HOME/build-tools/35.0.0/zipalign" android-sign-tools/
+          cp "$ANDROID_HOME/build-tools/35.0.0/lib/apksigner.jar" android-sign-tools/lib/
+
+      - name: Upload Android signing tools
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-sign-tools-35
+          path: android-sign-tools
           if-no-files-found: error
