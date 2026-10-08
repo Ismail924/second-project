@@ -108,11 +108,11 @@ public class AppSmokeTest {
                     value -> footerSafe.countDown()));
             assertTrue("Footer setup did not run", footerSafe.await(5, TimeUnit.SECONDS));
             Thread.sleep(500);
-            CountDownLatch footerCheck = new CountDownLatch(1);
+            CountDownLatch footerSafeCheck = new CountDownLatch(1);
             scenario.onActivity(activity -> activity.getWebViewForTesting().evaluateJavascript(
                     "window.__rvFooterSafe===true",
-                    value -> { footerSafeOk[0] = "true".equals(value); footerCheck.countDown(); }));
-            assertTrue("Profile footer remains hidden under bottom navigation", footerCheck.await(8, TimeUnit.SECONDS) && footerSafeOk[0]);
+                    value -> { footerSafeOk[0] = "true".equals(value); footerSafeCheck.countDown(); }));
+            assertTrue("Profile footer remains hidden under bottom navigation", footerSafeCheck.await(8, TimeUnit.SECONDS) && footerSafeOk[0]);
         }
     }
 }
