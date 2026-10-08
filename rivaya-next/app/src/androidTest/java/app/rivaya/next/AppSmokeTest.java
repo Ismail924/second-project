@@ -32,6 +32,19 @@ public class AppSmokeTest {
                     value -> { homeOk[0] = "true".equals(value); ready.countDown(); }));
             assertTrue("Today screen did not render", ready.await(10, TimeUnit.SECONDS) && homeOk[0]);
 
+            CountDownLatch scrollReset = new CountDownLatch(1);
+            final boolean[] scrollResetOk = {false};
+            scenario.onActivity(activity -> activity.getWebViewForTesting().evaluateJavascript(
+                    "document.body.style.minHeight='2200px';window.scrollTo(0,600);setTimeout(()=>{document.querySelector('[data-nav=profile]').click();setTimeout(()=>{window.__rvScrollY=window.scrollY;},100)},50);true",
+                    value -> scrollReset.countDown()));
+            assertTrue("Navigation command was not executed", scrollReset.await(5, TimeUnit.SECONDS));
+            Thread.sleep(500);
+            CountDownLatch scrollCheck = new CountDownLatch(1);
+            scenario.onActivity(activity -> activity.getWebViewForTesting().evaluateJavascript(
+                    "window.scrollY===0",
+                    value -> { scrollResetOk[0] = "true".equals(value); scrollCheck.countDown(); }));
+            assertTrue("Tab navigation did not reset scroll to top", scrollCheck.await(5, TimeUnit.SECONDS) && scrollResetOk[0]);
+
             CountDownLatch profile = new CountDownLatch(1);
             final boolean[] profileOk = {false};
             scenario.onActivity(activity -> activity.getWebViewForTesting().evaluateJavascript(
