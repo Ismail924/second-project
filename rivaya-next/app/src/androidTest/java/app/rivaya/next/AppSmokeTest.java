@@ -51,8 +51,23 @@ public class AppSmokeTest {
                     "state.profile.onboardingDone=true;document.querySelectorAll('.modal').forEach(m=>m.classList.remove('open'));document.body.style.minHeight='';currentView='"+view+"';render();window.scrollTo(0,0);document.documentElement.scrollWidth<=innerWidth",
                     value -> {fits[0]="true".equals(value);done.countDown();}));
                 assertTrue(view+" overflows viewport",done.await(10,TimeUnit.SECONDS)&&fits[0]);
-                Thread.sleep(1000);
-                device.waitForIdle();
+                // Await the WebView frame, then clear emulator-owned startup/ANR dialogs.
+                CountDownLatch frame = new CountDownLatch(1);
+                scenario.onActivity(a -> a.getWebViewForTesting().postVisualStateCallback(1,
+                    new android.webkit.WebView.VisualStateCallback() {
+                        @Override public void onComplete(long id) { frame.countDown(); }
+                    }));
+                assertTrue("WebView frame did not render", frame.await(15,TimeUnit.SECONDS));
+                for (int attempt=0; attempt<3; attempt++) {
+                    androidx.test.uiautomator.UiObject2 wait = device.findObject(androidx.test.uiautomator.By.text("Wait"));
+                    if (wait != null) wait.click();
+                    androidx.test.uiautomator.UiObject2 gotIt = device.findObject(androidx.test.uiautomator.By.text("Got it"));
+                    if (gotIt != null) gotIt.click();
+                    device.waitForIdle();
+                    Thread.sleep(500);
+                }
+                assertTrue("Emulator system dialog blocks screenshot",
+                    device.findObject(androidx.test.uiautomator.By.text("Process system isn't responding")) == null);
                 device.executeShellCommand("mkdir -p /sdcard/Download/rivaya-previews");
                 device.executeShellCommand("screencap -p /sdcard/Download/rivaya-previews/"+view+".png");
             }
