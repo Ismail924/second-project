@@ -1250,9 +1250,9 @@ renderProfile=function(){
 
   return `<div class="rv-screen rv-profile-v32">
     <section class="rv-profile-stats-neon">
-      <div><i class="fire">◆</i><b>${streak}</b><span>дней серия</span></div>
-      <div><i class="check">✓</i><b>${w.done}</b><span>выполнений за неделю</span></div>
-      <div><i class="steps">⌁</i><b>${health?fmtNum(state.activity.steps):'—'}</b><span>шагов сегодня</span></div>
+      <div><i class="rv-stat-icon rv-stat-streak">◆</i><b>${streak}</b><span>дней подряд</span></div>
+      <div><i class="rv-stat-icon rv-stat-done">✓</i><b>${w.done}</b><span>за неделю</span></div>
+      <div><i class="rv-stat-icon rv-stat-steps">⌁</i><b>${health?fmtNum(state.activity.steps):'—'}</b><span>шагов сегодня</span></div>
     </section>
 
     <div class="rv-settings-group rv-settings-group-neon">
