@@ -74,6 +74,26 @@ public class AppSmokeTest {
                     value -> { backOk[0] = "true".equals(value); back.countDown(); }));
             assertTrue("App did not return after closing picker", back.await(8, TimeUnit.SECONDS) && backOk[0]);
 
+            CountDownLatch navLayout = new CountDownLatch(1);
+            final boolean[] navLayoutOk = {false};
+            scenario.onActivity(activity -> activity.getWebViewForTesting().evaluateJavascript(
+                    "(()=>{const n=document.querySelector('.rv-bottom-nav');const r=n.getBoundingClientRect();const items=[...n.querySelectorAll('.nav-item')];return r.left>=8&&r.right<=innerWidth-8&&r.width>=innerWidth*0.88&&items.length===4&&items.every(x=>{const q=x.getBoundingClientRect();return q.left>=r.left&&q.right<=r.right})})()",
+                    value -> { navLayoutOk[0] = "true".equals(value); navLayout.countDown(); }));
+            assertTrue("Bottom navigation is shifted or clipped", navLayout.await(8, TimeUnit.SECONDS) && navLayoutOk[0]);
+
+            CountDownLatch footerLayout = new CountDownLatch(1);
+            final boolean[] footerLayoutOk = {false};
+            scenario.onActivity(activity -> activity.getWebViewForTesting().evaluateJavascript(
+                    "window.scrollTo(0,document.body.scrollHeight);setTimeout(()=>{const f=document.querySelector('.rv-profile-footer-neon');const n=document.querySelector('.rv-bottom-nav');window.__footerOk=!!f&&f.getBoundingClientRect().bottom<=n.getBoundingClientRect().top-6;},150);true",
+                    value -> footerLayout.countDown()));
+            assertTrue("Footer layout command failed", footerLayout.await(5, TimeUnit.SECONDS));
+            Thread.sleep(500);
+            CountDownLatch footerCheck = new CountDownLatch(1);
+            scenario.onActivity(activity -> activity.getWebViewForTesting().evaluateJavascript(
+                    "window.__footerOk===true",
+                    value -> { footerLayoutOk[0] = "true".equals(value); footerCheck.countDown(); }));
+            assertTrue("Profile footer is hidden behind bottom navigation", footerCheck.await(5, TimeUnit.SECONDS) && footerLayoutOk[0]);
+
             CountDownLatch navGeometry = new CountDownLatch(1);
             final boolean[] navGeometryOk = {false};
             scenario.onActivity(activity -> activity.getWebViewForTesting().evaluateJavascript(
