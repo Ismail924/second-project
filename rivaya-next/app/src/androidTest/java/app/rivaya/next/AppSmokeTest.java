@@ -3,6 +3,10 @@ package app.rivaya.next;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertTrue;
 
+import android.content.Context;
+import android.graphics.drawable.AdaptiveIconDrawable;
+import android.graphics.drawable.Drawable;
+
 import androidx.test.core.app.ActivityScenario;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
@@ -58,6 +62,28 @@ public class AppSmokeTest {
                     "document.querySelectorAll('.rv-target-profile-stats > div').length===3 && document.querySelectorAll('.rv-target-setting').length>=6 && !!document.querySelector('.rv-target-instagram')",
                     value -> { targetUiOk[0] = "true".equals(value); targetUi.countDown(); }));
             assertTrue("Reference-matched Profile UI did not render", targetUi.await(8, TimeUnit.SECONDS) && targetUiOk[0]);
+
+            Context targetContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
+            Drawable launcherIcon = targetContext.getPackageManager().getApplicationIcon(targetContext.getApplicationInfo());
+            assertTrue("Launcher icon is not adaptive", launcherIcon instanceof AdaptiveIconDrawable);
+
+            CountDownLatch crud = new CountDownLatch(1);
+            final boolean[] crudOk = {false};
+            scenario.onActivity(activity -> activity.getWebViewForTesting().evaluateJavascript(
+                    "(()=>{try{window.__rvBaseBackup=backupText();document.getElementById('habitName').value='Smoke Habit';document.getElementById('habitFrequency').value='daily';document.getElementById('habitReminderEnabled').checked=true;document.getElementById('habitReminderTime').value='10:15';document.getElementById('saveHabitBtn').click();document.getElementById('goalName').value='Smoke Goal';document.getElementById('goalType').value='regular';document.getElementById('goalFirstStep').value='First step';document.getElementById('goalReminderEnabled').checked=true;document.getElementById('goalReminderTime').value='11:20';document.getElementById('saveGoalBtn').click();return state.habits.some(h=>h.name==='Smoke Habit')&&state.goals.some(g=>g.name==='Smoke Goal')&&collectSmartReminderItems().some(x=>x.title.includes('Smoke Habit'))&&collectSmartReminderItems().some(x=>x.title.includes('Smoke Goal'));}catch(e){return false}})()",
+                    value -> { crudOk[0] = "true".equals(value); crud.countDown(); }));
+            assertTrue("Habit/goal creation or personal reminders failed", crud.await(10, TimeUnit.SECONDS) && crudOk[0]);
+
+            Thread.sleep(500);
+            String itemJson = targetContext.getSharedPreferences("rivaya_reminders", Context.MODE_PRIVATE).getString("items_json", "[]");
+            assertTrue("Personal reminders were not persisted natively", itemJson.contains("Smoke Habit") && itemJson.contains("Smoke Goal"));
+
+            CountDownLatch restoreCreated = new CountDownLatch(1);
+            final boolean[] restoreCreatedOk = {false};
+            scenario.onActivity(activity -> activity.getWebViewForTesting().evaluateJavascript(
+                    "(()=>{try{restoreBackupText(window.__rvBaseBackup);return !state.habits.some(h=>h.name==='Smoke Habit')&&!state.goals.some(g=>g.name==='Smoke Goal')}catch(e){return false}})()",
+                    value -> { restoreCreatedOk[0] = "true".equals(value); restoreCreated.countDown(); }));
+            assertTrue("Backup restore did not roll back created data", restoreCreated.await(10, TimeUnit.SECONDS) && restoreCreatedOk[0]);
 
             CountDownLatch releaseUi = new CountDownLatch(1);
             final boolean[] releaseUiOk = {false};
