@@ -3,6 +3,7 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+  actions: read
 concurrency:
   group: rivaya-appstore
   cancel-in-progress: false
@@ -13,6 +14,10 @@ jobs:
     environment: app-store
     steps:
       - uses: actions/checkout@v4
+      - name: Require passing iOS release checks
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 rivaya-next/ios/scripts/require-ci.py
       - uses: actions/setup-node@v4
         with:
           node-version: '22'

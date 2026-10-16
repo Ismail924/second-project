@@ -35,6 +35,7 @@ final class RivayaController: UIViewController, WKScriptMessageHandler, WKNaviga
         let bridge = """
         window.RIVAYA_IOS = true;
         window.VektorNative = {
+          clearNativeData: () => window.webkit.messageHandlers.rivaya.postMessage({action:'clearNativeData'}),
           pickAvatar: () => window.webkit.messageHandlers.rivaya.postMessage({action:'pickAvatar'}),
           exportBackupFile: text => window.webkit.messageHandlers.rivaya.postMessage({action:'exportBackupFile',text}),
           importBackupFile: () => window.webkit.messageHandlers.rivaya.postMessage({action:'importBackupFile'}),
@@ -72,6 +73,10 @@ final class RivayaController: UIViewController, WKScriptMessageHandler, WKNaviga
         guard message.frameInfo.isMainFrame, message.frameInfo.request.url?.isFileURL == true,
               let body = message.body as? [String: Any], let action = body["action"] as? String else { return }
         switch action {
+        case "clearNativeData":
+            try? FileManager.default.removeItem(at: FileManager.default.temporaryDirectory.appendingPathComponent("rivaya-backup.json"))
+            UNUserNotificationCenter.current().removeAllDeliveredNotifications()
+            reminders.configure("[]")
         case "pickAvatar":
             guard presentedViewController == nil else { return }
             var config = PHPickerConfiguration(); config.filter = .images; config.selectionLimit = 1

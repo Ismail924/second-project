@@ -30,7 +30,7 @@ platform :ios do
       UI.user_error!('Wrong bundle ID') unless plist.dig('Entitlements', 'application-identifier') == 'M2329MH9ZX.app.rivaya.smart01'
       UI.user_error!('HealthKit must be enabled in the provisioning profile') unless plist.dig('Entitlements', 'com.apple.developer.healthkit')
       UI.user_error!('Use an App Store distribution profile') if plist['ProvisionedDevices'] || plist.dig('Entitlements', 'get-task-allow')
-      update_code_signing_settings(path: 'Rivaya.xcodeproj', use_automatic_signing: false, team_id: 'M2329MH9ZX', code_sign_identity: 'Apple Distribution', profile_name: plist['Name'])
+      update_code_signing_settings(path: 'Rivaya.xcodeproj', targets: ['Rivaya'], use_automatic_signing: false, team_id: 'M2329MH9ZX', code_sign_identity: 'Apple Distribution', profile_name: plist['Name'])
       increment_build_number(build_number: ENV.fetch('RIVAYA_BUILD_NUMBER'), xcodeproj: 'Rivaya.xcodeproj')
       build_app(project: 'Rivaya.xcodeproj', scheme: 'Rivaya', clean: true, output_directory: 'build/store', output_name: 'RIVAYA.ipa', export_method: 'app-store',
         export_options: { provisioningProfiles: { 'app.rivaya.smart01' => plist['Name'] }, signingStyle: 'manual', teamID: 'M2329MH9ZX' })

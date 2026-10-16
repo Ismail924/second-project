@@ -826,7 +826,7 @@ document.addEventListener('click',e=>{
   }
   if(e.target.id==='installInside'){installApp();return}
   if(e.target.id==='exportBtn'){exportData();return}
-  if(e.target.id==='resetBtn'){if(confirm('Удалить все локальные данные RIVAYA?')){localStorage.removeItem(STORAGE_KEY+'-before-restore');localStorage.removeItem('rivaya-sync-v1:guest');state=clone(defaultState);save();syncSmartReminders(false);currentView='today';render();toast('Данные очищены')}return}
+  if(e.target.id==='resetBtn'){if(confirm('Удалить все локальные данные RIVAYA?')){window.VektorNative?.clearNativeData?.();localStorage.removeItem(STORAGE_KEY+'-before-restore');localStorage.removeItem('rivaya-sync-v1:guest');state=clone(defaultState);save();syncSmartReminders(false);currentView='today';render();toast('Данные очищены')}return}
 });
 
 function updateGoalTypeFields(){

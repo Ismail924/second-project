@@ -2,7 +2,7 @@ name: RIVAYA iOS compile check
 on:
   workflow_dispatch:
   push:
-    branches: ['rivaya4/ios-sync-foundation']
+    branches: ['rivaya4/ios-sync-foundation', 'main']
     paths: ['rivaya-next/**', '.github/workflows/ios-preview.yml']
 permissions:
   contents: read
