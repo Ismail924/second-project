@@ -1,0 +1,44 @@
+name: Rivaya
+options:
+  bundleIdPrefix: app.rivaya
+  deploymentTarget:
+    iOS: '16.0'
+settings:
+  base:
+    SWIFT_VERSION: '5.0'
+    DEVELOPMENT_TEAM: M2329MH9ZX
+    MARKETING_VERSION: '4.0.2'
+    CURRENT_PROJECT_VERSION: '40002'
+targets:
+  Rivaya:
+    type: application
+    platform: iOS
+    sources:
+      - path: Sources
+      - path: ../app/src/main/assets
+        type: folder
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.rivaya.smart01
+        TARGETED_DEVICE_FAMILY: '1'
+        GENERATE_INFOPLIST_FILE: NO
+    info:
+      path: Info.plist
+      properties:
+        CFBundleDisplayName: RIVAYA
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        NSHealthShareUsageDescription: RIVAYA читает количество шагов, чтобы показывать вашу ежедневную активность и прогресс.
+    entitlements:
+      path: Rivaya.entitlements
+      properties:
+        com.apple.developer.healthkit: true
+schemes:
+  Rivaya:
+    build:
+      targets:
+        Rivaya: all

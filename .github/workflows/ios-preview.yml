@@ -1,0 +1,28 @@
+name: RIVAYA iOS compile check
+on:
+  workflow_dispatch:
+  push:
+    branches: ['rivaya4/ios-sync-foundation']
+    paths: ['rivaya-next/**', '.github/workflows/ios-preview.yml']
+permissions:
+  contents: read
+jobs:
+  simulator:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node rivaya-next/tests/sync-check.cjs && node rivaya-next/tests/state-check.cjs
+      - run: brew install xcodegen
+      - name: Generate project from shared RIVAYA sources
+        working-directory: rivaya-next/ios
+        run: xcodegen generate
+      - name: Compile for simulator (not a signed TestFlight build)
+        working-directory: rivaya-next/ios
+        run: xcodebuild -project Rivaya.xcodeproj -scheme Rivaya -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RIVAYA-iOS-SIMULATOR-NOT-FOR-IPHONE
+          path: rivaya-next/ios/build/Build/Products/Debug-iphonesimulator/Rivaya.app

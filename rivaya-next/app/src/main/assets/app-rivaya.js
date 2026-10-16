@@ -159,7 +159,14 @@ function recordDailySnapshots(){
     Object.keys(state.goalSnapshots).forEach(d=>{if(d<cut)delete state.goalSnapshots[d]});
   }catch{}
 }
-function save(){recordDailySnapshots();localStorage.setItem(STORAGE_KEY,JSON.stringify(state));setTimeout(()=>syncSmartReminders(false),0)}
+function save(){recordDailySnapshots();localStorage.setItem(STORAGE_KEY,JSON.stringify(state));captureSyncDraft();setTimeout(()=>syncSmartReminders(false),0)}
+function captureSyncDraft(){
+  // Until authentication is configured, this is strictly a local guest journal.
+  // Never label this as cloud backup or send it to another account implicitly.
+  if(!window.RivayaSync)return;
+  try{new window.RivayaSync.Journal(localStorage).capture('guest',state)}
+  catch(e){console.warn('Local sync draft unavailable; primary local data retained',e)}
+}
 function activityConnected(){return state.activity.access==='granted' && (!state.activity.day || state.activity.day===todayKey())}
 function healthSource(){
   const ua=navigator.userAgent||'';
