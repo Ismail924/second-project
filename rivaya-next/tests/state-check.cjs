@@ -12,3 +12,12 @@ test("(()=>{state.habits=[];return renderProgress().includes('0%')&&renderPlan()
 console.log('PASS: backup roundtrip, invalid backup atomicity, personal reminders, quiet hours, native steps/history, empty Plan/Progress');
 
 test("(()=>{save();return JSON.parse(localStorage.getItem(\"rivaya-sync-v1:guest\")).owner===\"guest\"})()");
+
+// Saving an item without a reminder must not request OS notification permission.
+let permissionRequests=0;
+ctx.VektorNative=ctx.window.VektorNative={configureItemReminders(){},requestNotificationPermission(){permissionRequests++}};
+vm.runInContext("state.goals=[];state.habits=[];state.reminders.enabled=false;syncSmartReminders(true)",ctx);
+assert.strictEqual(permissionRequests,0);
+vm.runInContext("state.reminders.quietEnabled=false;state.habits=[{id:'notify',name:'Read',freq:'Каждый день',createdAt:todayKey(),reminderEnabled:true,reminderTime:'12:00'}];syncSmartReminders(true)",ctx);
+assert.strictEqual(permissionRequests,1);
+console.log('PASS: notification permission requested only for an active reminder');

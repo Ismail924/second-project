@@ -558,7 +558,7 @@ function syncSmartReminders(ask=false){
   const payload=JSON.stringify(items);
   try{
     if(window.VektorNative && typeof VektorNative.configureItemReminders==='function'){
-      if(ask && typeof VektorNative.requestNotificationPermission==='function')VektorNative.requestNotificationPermission();
+      if(ask && items.length>0 && typeof VektorNative.requestNotificationPermission==='function')VektorNative.requestNotificationPermission();
       if(!ask && payload===rvLastReminderFingerprint)return true;
       VektorNative.configureItemReminders(payload);
       rvLastReminderFingerprint=payload;
@@ -566,7 +566,7 @@ function syncSmartReminders(ask=false){
     }
   }catch(e){}
   const times=collectSmartReminderTimes().slice(0,3);
-  return nativeReminderConfigure(times.length>0,times,ask);
+  return nativeReminderConfigure(times.length>0,times,ask && times.length>0);
 }
 function smartReminderSummary(){
   const items=collectSmartReminderItems();

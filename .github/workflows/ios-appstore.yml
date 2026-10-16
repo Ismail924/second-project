@@ -1,6 +1,7 @@
 name: RIVAYA upload to App Store Connect
 on:
   workflow_dispatch:
+  create:
 permissions:
   contents: read
   actions: read
@@ -9,6 +10,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   upload:
+    if: github.event_name == 'workflow_dispatch' || (github.event.ref_type == 'branch' && github.event.ref == 'release/rivaya-ios-4.0.2')
     runs-on: macos-15
     timeout-minutes: 45
     environment: app-store
