@@ -3,6 +3,9 @@ platform :ios do
   desc 'Build signed RIVAYA and upload to App Store Connect/TestFlight; never submit review automatically'
   lane :beta do
     require 'base64'
+    require 'shellwords'
+    require 'plist'
+    require 'fileutils'
     require 'securerandom'
     require 'tmpdir'
     required = %w[APPLE_CERTIFICATE_P12_BASE64 APPLE_CERTIFICATE_PASSWORD APPLE_PROFILE_BASE64 ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8_BASE64]

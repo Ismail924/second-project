@@ -551,3 +551,5 @@ html,body{
 @media(prefers-reduced-motion:reduce){.rv-plan-goal-card,.rv-progress-bar-track i{transition:none}}
 
 .rv-plan-goal-grid > .rv-plan-empty-action{grid-column:1/-1}
+
+.ios-native #installBtn{display:none!important}

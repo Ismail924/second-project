@@ -1131,6 +1131,7 @@ function rvTryFullscreen(){
   }catch(_e){}
 }
 if(/Android/i.test(navigator.userAgent))document.documentElement.classList.add('rv-android');
+if(window.RIVAYA_IOS)document.documentElement.classList.add('ios-native');
 let rvFullscreenAttempted=false;
 document.addEventListener('pointerdown',()=>{
   if(!rvFullscreenAttempted){rvFullscreenAttempted=true;rvTryFullscreen()}
@@ -1411,9 +1412,9 @@ renderProfile=function(){
 
     <div class="rv-target-group"><div class="rv-target-group-title">ПРИЛОЖЕНИЕ</div><div class="rv-target-settings">
       <div class="rv-target-setting"><div class="rv-target-setting-icon">${rvUiIcon('cloud')}</div><div class="rv-target-setting-copy"><b>Данные на этом устройстве</b><span>Сохраняются автоматически. Вход и синхронизация между устройствами пока недоступны.</span></div></div>
-      <div class="rv-target-setting" data-privacy><div class="rv-target-setting-copy"><b>Конфиденциальность</b><span>Как RIVAYA работает с данными</span></div><button>Открыть ›</button></div>
-      <div class="rv-target-setting" data-external="mailto:support@rivayaapp.com"><div class="rv-target-setting-copy"><b>Поддержка</b><span>support@rivayaapp.com</span></div><button>Написать ›</button></div>
-      <div class="rv-target-setting"><div class="rv-target-setting-copy"><b>Удалить данные</b><span>Очистить цели, привычки и профиль на этом устройстве</span></div><button id="resetBtn">Удалить</button></div>
+      <div class="rv-target-setting" data-privacy><div class="rv-target-setting-icon">${rvUiIcon('list')}</div><div class="rv-target-setting-copy"><b>Конфиденциальность</b><span>Как RIVAYA работает с данными</span></div><button>Открыть ›</button></div>
+      <div class="rv-target-setting" data-external="mailto:support@rivayaapp.com"><div class="rv-target-setting-icon">${rvUiIcon('external')}</div><div class="rv-target-setting-copy"><b>Поддержка</b><span>support@rivayaapp.com</span></div><button>Написать ›</button></div>
+      <div class="rv-target-setting"><div class="rv-target-setting-icon">×</div><div class="rv-target-setting-copy"><b>Удалить данные</b><span>Очистить цели, привычки и профиль на этом устройстве</span></div><button id="resetBtn">Удалить</button></div>
     </div></div>
     <section class="rv-target-profile-footer">
       <div class="rv-target-footer-copy"><b>RIVAYA 4.0.2</b><span>Цели · привычки · реальные шаги · прогресс</span></div>

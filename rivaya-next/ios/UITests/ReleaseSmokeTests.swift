@@ -11,7 +11,7 @@ final class ReleaseSmokeTests: XCTestCase {
         XCTAssertTrue(plan.waitForExistence(timeout: 10))
         attach("Сегодня")
         plan.tap()
-        let add = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Добавить цель")).firstMatch
+        let add = app.buttons["+ Цель"]
         XCTAssertTrue(add.waitForExistence(timeout: 5))
         add.tap()
         let name = app.textFields["Например: Запустить сайт"]

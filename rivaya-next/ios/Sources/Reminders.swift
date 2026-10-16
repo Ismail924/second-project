@@ -83,7 +83,8 @@ final class ReminderService {
                     // Finite habits use dated requests, never repeat after their end date.
                     for offset in 0..<366 {
                         guard let day = calendar.date(byAdding: .day, value: offset, to: calendar.startOfDay(for: now)), day <= lastDay else { break }
-                        if item.weekdaysOnly && calendar.isDateInWeekend(day) { continue }
+                        let weekday = calendar.component(.weekday, from: day)
+                        if item.weekdaysOnly && (weekday == 1 || weekday == 7) { continue }
                         guard let fire = calendar.date(bySettingHour: parts[0], minute: parts[1], second: 0, of: day), fire > now else { continue }
                         let components = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: fire)
                         let request = UNNotificationRequest(identifier: "rv-\(token)-\(item.id)-\(offset)", content: content,
