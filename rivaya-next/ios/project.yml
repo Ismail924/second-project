@@ -39,6 +39,7 @@ targets:
           UIColorName: LaunchBackground
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
+        NSHealthUpdateUsageDescription: RIVAYA использует Здоровье для отображения вашей активности. Приложение только читает шаги и не добавляет и не изменяет данные Здоровья.
         NSHealthShareUsageDescription: RIVAYA читает количество шагов, чтобы показывать вашу ежедневную активность и прогресс.
     entitlements:
       path: Rivaya.entitlements
