@@ -1441,3 +1441,13 @@ render=function(){
   }
 };
 render();
+// A fixed modal must follow the area above the software keyboard.
+function rvUpdateVisualViewport(){
+  const viewport=window.visualViewport;
+  if(!viewport)return;
+  document.documentElement.style.setProperty('--rv-visual-height',viewport.height+'px');
+  document.documentElement.style.setProperty('--rv-visual-top',viewport.offsetTop+'px');
+}
+window.visualViewport?.addEventListener('resize',rvUpdateVisualViewport);
+window.visualViewport?.addEventListener('scroll',rvUpdateVisualViewport);
+rvUpdateVisualViewport();

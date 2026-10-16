@@ -553,3 +553,11 @@ html,body{
 .rv-plan-goal-grid > .rv-plan-empty-action{grid-column:1/-1}
 
 .ios-native #installBtn{display:none!important}
+
+/* RIVAYA 4: keep forms inside the visible viewport, including the iOS keyboard. */
+.modal{top:var(--rv-visual-top,0px);bottom:auto;height:var(--rv-visual-height,100dvh)}
+.modal-card{min-width:0;max-height:calc(var(--rv-visual-height,100dvh) - 16px);overflow-y:auto;overscroll-behavior:contain}
+.modal-card label,.modal-card input,.modal-card select,.modal-card textarea{min-width:0;max-width:100%}
+@media(max-width:800px){
+  .modal-card input,.modal-card select,.modal-card textarea{font-size:16px}
+}
