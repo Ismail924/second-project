@@ -1,0 +1,43 @@
+name: RIVAYA upload to App Store Connect
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: rivaya-appstore
+  cancel-in-progress: false
+jobs:
+  upload:
+    runs-on: macos-15
+    timeout-minutes: 45
+    environment: app-store
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node rivaya-next/tests/state-check.cjs && node rivaya-next/tests/sync-check.cjs && node rivaya-next/tests/sync-transport-check.cjs
+      - run: bash rivaya-next/ios/scripts/select-xcode.sh
+      - run: python3 rivaya-next/ios/scripts/prepare-resources.py
+      - run: brew install xcodegen
+      - run: xcodegen generate
+        working-directory: rivaya-next/ios
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+          working-directory: rivaya-next/ios
+      - name: Sign and upload (does not submit for review)
+        working-directory: rivaya-next/ios
+        env:
+          APPLE_CERTIFICATE_P12_BASE64: ${{ secrets.APPLE_CERTIFICATE_P12_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_PROFILE_BASE64: ${{ secrets.APPLE_PROFILE_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+          RIVAYA_BUILD_NUMBER: ${{ github.run_number }}
+          FASTLANE_SKIP_UPDATE_CHECK: 'true'
+          FASTLANE_HIDE_CHANGELOG: 'true'
+          FASTLANE_OPT_OUT_USAGE: 'true'
+        run: bundle exec fastlane ios beta

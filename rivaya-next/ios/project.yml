@@ -44,8 +44,21 @@ targets:
       path: Rivaya.entitlements
       properties:
         com.apple.developer.healthkit: true
+  RivayaUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [UITests]
+    dependencies:
+      - target: Rivaya
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.rivaya.smart01.uitests
+        GENERATE_INFOPLIST_FILE: YES
 schemes:
   Rivaya:
     build:
       targets:
         Rivaya: all
+    test:
+      targets:
+        - RivayaUITests
