@@ -6,7 +6,12 @@ final class ReleaseSmokeTests: XCTestCase {
         let app = XCUIApplication()
         app.launch()
         let start = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Начать")).firstMatch
-        if start.waitForExistence(timeout: 8) { start.tap() }
+        XCTAssertTrue(start.waitForExistence(timeout: 20), "First launch must show onboarding")
+        start.tap()
+        let dismissed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: start)
+        let result = XCTWaiter.wait(for: [dismissed], timeout: 8)
+        if result != .completed { attach("Onboarding did not close") }
+        XCTAssertEqual(result, .completed, "Start must dismiss onboarding before navigation")
         let plan = app.buttons["План"]
         XCTAssertTrue(plan.waitForExistence(timeout: 10))
         attach("Сегодня")

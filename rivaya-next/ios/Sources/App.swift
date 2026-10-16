@@ -50,6 +50,19 @@ final class RivayaController: UIViewController, WKScriptMessageHandler, WKNaviga
         };
         """
         configuration.userContentController.addUserScript(WKUserScript(source: bridge, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        #if DEBUG
+        let diagnostics = """
+        window.addEventListener('error', e => window.webkit.messageHandlers.rivaya.postMessage({action:'debug',text:'JS error: '+e.message+' at '+e.lineno}));
+        document.addEventListener('click', e => {
+          const b=e.target.closest('button');
+          if(b?.id==='finishOnboardingBtn') {
+            window.webkit.messageHandlers.rivaya.postMessage({action:'debug',text:'Onboarding click received'});
+            setTimeout(()=>window.webkit.messageHandlers.rivaya.postMessage({action:'debug',text:'Onboarding open after click: '+document.getElementById('onboardingModal').classList.contains('open')}),0);
+          }
+        },true);
+        """
+        configuration.userContentController.addUserScript(WKUserScript(source: diagnostics, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        #endif
         web = WKWebView(frame: .zero, configuration: configuration)
         web.navigationDelegate = self
         web.uiDelegate = self
@@ -73,6 +86,10 @@ final class RivayaController: UIViewController, WKScriptMessageHandler, WKNaviga
         guard message.frameInfo.isMainFrame, message.frameInfo.request.url?.isFileURL == true,
               let body = message.body as? [String: Any], let action = body["action"] as? String else { return }
         switch action {
+        case "debug":
+            #if DEBUG
+            if let text = body["text"] as? String { NSLog("RIVAYA diagnostic: %@", text) }
+            #endif
         case "clearNativeData":
             try? FileManager.default.removeItem(at: FileManager.default.temporaryDirectory.appendingPathComponent("rivaya-backup.json"))
             UNUserNotificationCenter.current().removeAllDeliveredNotifications()
