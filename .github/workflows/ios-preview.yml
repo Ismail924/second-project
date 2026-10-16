@@ -14,7 +14,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node rivaya-next/tests/sync-check.cjs && node rivaya-next/tests/state-check.cjs
+      - run: node rivaya-next/tests/sync-check.cjs && node rivaya-next/tests/sync-transport-check.cjs && node rivaya-next/tests/state-check.cjs
+      - run: bash rivaya-next/ios/scripts/select-xcode.sh
+      - run: python3 rivaya-next/ios/scripts/prepare-resources.py
       - run: brew install xcodegen
       - name: Generate project from shared RIVAYA sources
         working-directory: rivaya-next/ios

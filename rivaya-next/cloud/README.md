@@ -5,10 +5,18 @@ adds an atomic guest journal, a versioned allowlist, per-account namespaces,
 three-way field/entity merge and explicit delete/edit conflicts. No network
 requests, login form, tokens or simulated sync success are introduced.
 
-The SQL migration targets a NEW dedicated Supabase project. It provides RLS,
+`sync-transport.js` adds an opt-in REST transport with owner checks, cancellation
+on session switches, request timeouts, explicit CAS/auth/network errors and an
+upload field allowlist. It is not loaded by the app yet: the native secure session
+provider and transactional workspace switching must be connected first. Tokens
+are supplied per request and are never persisted by the transport. The session
+coordinator must call `cancel()` before logout or switching accounts. Transport
+tests use mock responses; they do not establish live RLS or delivery correctness.
+
+The SQL migration targets a dedicated RIVAYA Supabase project. It provides RLS,
 owner-only reads and a security-definer compare-and-swap write RPC; a caller
-cannot choose someone else's user ID. It has not yet been applied or tested
-against a live PostgreSQL instance. Never apply it to MUBARAKA.
+cannot choose someone else's user ID. The owner applied it through SQL Editor
+on 2026-10-16; live two-user isolation tests remain pending. Never apply it to MUBARAKA.
 
 Next integration gates:
 1. Provision project in the owner's account; configure email OTP delivery,

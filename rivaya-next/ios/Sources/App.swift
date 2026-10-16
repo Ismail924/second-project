@@ -1,6 +1,9 @@
 import UIKit
 import WebKit
 import HealthKit
+import PhotosUI
+import UniformTypeIdentifiers
+import UserNotifications
 
 @main
 final class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -10,23 +13,35 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         window.rootViewController = RivayaController()
         window.makeKeyAndVisible()
         self.window = window
+        window.overrideUserInterfaceStyle = .dark
         return true
     }
 }
 
-final class RivayaController: UIViewController, WKScriptMessageHandler, WKNavigationDelegate, WKUIDelegate {
+final class RivayaController: UIViewController, WKScriptMessageHandler, WKNavigationDelegate, WKUIDelegate, PHPickerViewControllerDelegate, UIDocumentPickerDelegate, UNUserNotificationCenterDelegate {
     private var web: WKWebView!
     private let health = HKHealthStore()
     private var refreshing = false
+    private let reminders = ReminderService()
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = UIColor(red: 0.03, green: 0.04, blue: 0.08, alpha: 1)
         let configuration = WKWebViewConfiguration()
         configuration.websiteDataStore = .default()
         configuration.userContentController.add(self, name: "rivaya")
+        UNUserNotificationCenter.current().delegate = self
+        reminders.report = { [weak self] text in self?.callback("rivayaOnNotificationStatus", text) }
         // Expose only implemented operations. Never pretend unavailable features succeeded.
         let bridge = """
+        window.RIVAYA_IOS = true;
         window.VektorNative = {
+          pickAvatar: () => window.webkit.messageHandlers.rivaya.postMessage({action:'pickAvatar'}),
+          exportBackupFile: text => window.webkit.messageHandlers.rivaya.postMessage({action:'exportBackupFile',text}),
+          importBackupFile: () => window.webkit.messageHandlers.rivaya.postMessage({action:'importBackupFile'}),
+          requestNotificationPermission: () => window.webkit.messageHandlers.rivaya.postMessage({action:'requestNotificationPermission'}),
+          configureItemReminders: text => window.webkit.messageHandlers.rivaya.postMessage({action:'configureItemReminders',text}),
+          testNotification: () => window.webkit.messageHandlers.rivaya.postMessage({action:'testNotification'}),
+          showPrivacy: () => window.webkit.messageHandlers.rivaya.postMessage({action:'showPrivacy'}),
           refreshSteps: () => window.webkit.messageHandlers.rivaya.postMessage({action:'refreshSteps'}),
           requestStepAccess: () => window.webkit.messageHandlers.rivaya.postMessage({action:'requestStepAccess'}),
           openHealthSettings: () => window.webkit.messageHandlers.rivaya.postMessage({action:'openHealthSettings'}),
@@ -50,15 +65,30 @@ final class RivayaController: UIViewController, WKScriptMessageHandler, WKNaviga
         ])
         guard let page = Bundle.main.url(forResource: "index", withExtension: "html", subdirectory: "assets") else { return }
         web.loadFileURL(page, allowingReadAccessTo: page.deletingLastPathComponent())
-        NotificationCenter.default.addObserver(self, selector: #selector(refreshSteps), name: UIApplication.didBecomeActiveNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(becameActive), name: UIApplication.didBecomeActiveNotification, object: nil)
     }
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) { refreshSteps() }
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         guard message.frameInfo.isMainFrame, message.frameInfo.request.url?.isFileURL == true,
               let body = message.body as? [String: Any], let action = body["action"] as? String else { return }
         switch action {
+        case "pickAvatar":
+            guard presentedViewController == nil else { return }
+            var config = PHPickerConfiguration(); config.filter = .images; config.selectionLimit = 1
+            let picker = PHPickerViewController(configuration: config); picker.delegate = self
+            present(picker, animated: true)
+        case "exportBackupFile": if let text = body["text"] as? String { exportBackup(text) }
+        case "importBackupFile":
+            guard presentedViewController == nil else { return }
+            let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.json, .plainText], asCopy: true)
+            picker.delegate = self; present(picker, animated: true)
+        case "requestNotificationPermission": reminders.requestPermission()
+        case "configureItemReminders": if let text = body["text"] as? String { reminders.configure(text) }
+        case "testNotification": reminders.test()
+        case "showPrivacy": showPrivacy()
         case "refreshSteps": refreshSteps()
         case "requestStepAccess":
+            if UserDefaults.standard.bool(forKey: "rivaya.health.requested") { showHealthHelp(); return }
             guard HKHealthStore.isHealthDataAvailable(), let steps = HKObjectType.quantityType(forIdentifier: .stepCount) else { return }
             health.requestAuthorization(toShare: [], read: [steps]) { [weak self] completed, _ in
                 DispatchQueue.main.async {
@@ -67,12 +97,71 @@ final class RivayaController: UIViewController, WKScriptMessageHandler, WKNaviga
                 }
             }
         case "openHealthSettings":
-            let alert = UIAlertController(title: "Доступ к шагам", message: "Откройте «Здоровье» → профиль → Приложения → RIVAYA и разрешите чтение шагов. Apple не сообщает приложению, был ли доступ отклонён.", preferredStyle: .alert)
-            alert.addAction(UIAlertAction(title: "Понятно", style: .default))
-            present(alert, animated: true)
+            showHealthHelp()
         case "openExternal": if let text = body["url"] as? String { openExternal(text) }
         default: break
         }
+    }
+    @objc private func becameActive() {
+        refreshSteps()
+        web?.evaluateJavaScript("rvLastReminderFingerprint='';syncSmartReminders(false)", completionHandler: nil)
+    }
+    private func showHealthHelp() {
+        let alert = UIAlertController(title: "Доступ к шагам", message: "Откройте «Здоровье» → профиль → Приложения → RIVAYA и разрешите чтение шагов. Если доступ уже разрешён, пройдите несколько шагов и вернитесь в RIVAYA. Apple не сообщает приложению, был ли доступ отклонён.", preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: "Понятно", style: .default))
+        if presentedViewController == nil { present(alert, animated: true) }
+    }
+    private func callback(_ name: String, _ value: String) {
+        guard let data = try? JSONSerialization.data(withJSONObject: [value]), let json = String(data: data, encoding: .utf8) else { return }
+        web.evaluateJavaScript("window.\(name)?.(...\(json))", completionHandler: nil)
+    }
+    private func showPrivacy() {
+        guard let url = Bundle.main.url(forResource: "privacy", withExtension: "html", subdirectory: "assets"), presentedViewController == nil else { return }
+        let controller = UIViewController(); controller.title = "Конфиденциальность"
+        let page = WKWebView(); page.navigationDelegate = self
+        controller.view = page; page.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
+        let nav = UINavigationController(rootViewController: controller)
+        controller.navigationItem.rightBarButtonItem = UIBarButtonItem(title: "Готово", style: .done, target: self, action: #selector(closePresented))
+        present(nav, animated: true)
+    }
+    @objc private func closePresented() { dismiss(animated: true) }
+    private func exportBackup(_ text: String) {
+        guard text.utf8.count <= 8_388_608, presentedViewController == nil else { return }
+        do {
+            let url = FileManager.default.temporaryDirectory.appendingPathComponent("rivaya-backup.json")
+            try text.write(to: url, atomically: true, encoding: .utf8)
+            let picker = UIDocumentPickerViewController(forExporting: [url], asCopy: true)
+            present(picker, animated: true)
+        } catch { callback("rivayaOnNativeMessage", "Не удалось сохранить файл") }
+    }
+    func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+        guard let url = urls.first else { return }
+        let access = url.startAccessingSecurityScopedResource()
+        defer { if access { url.stopAccessingSecurityScopedResource() } }
+        do {
+            let data = try Data(contentsOf: url, options: .mappedIfSafe)
+            guard data.count <= 8_388_608, let text = String(data: data, encoding: .utf8) else { throw CocoaError(.fileReadCorruptFile) }
+            callback("rivayaOnBackupImport", text)
+        } catch { callback("rivayaOnNativeMessage", "Не удалось прочитать резервную копию") }
+    }
+    func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
+        picker.dismiss(animated: true)
+        guard let provider = results.first?.itemProvider, provider.canLoadObject(ofClass: UIImage.self) else { return }
+        provider.loadObject(ofClass: UIImage.self) { [weak self] object, _ in
+            guard let image = object as? UIImage, image.size.width > 0, image.size.height > 0 else { return }
+            let format = UIGraphicsImageRendererFormat(); format.scale = 1; format.opaque = true
+            let thumb = UIGraphicsImageRenderer(size: CGSize(width: 360, height: 360), format: format).image { context in
+                UIColor.black.setFill(); context.fill(CGRect(x: 0, y: 0, width: 360, height: 360))
+                let scale = max(360 / image.size.width, 360 / image.size.height)
+                let size = CGSize(width: image.size.width * scale, height: image.size.height * scale)
+                image.draw(in: CGRect(x: (360-size.width)/2, y: (360-size.height)/2, width: size.width, height: size.height))
+            }
+            guard let data = thumb.jpegData(compressionQuality: 0.82) else { return }
+            DispatchQueue.main.async { self?.callback("rivayaOnAvatar", "data:image/jpeg;base64," + data.base64EncodedString()) }
+        }
+    }
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification, withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        completionHandler([.banner, .sound])
     }
     private func openExternal(_ text: String) {
         guard let url = URL(string: text), ["https", "mailto"].contains(url.scheme?.lowercased() ?? "") else { return }
