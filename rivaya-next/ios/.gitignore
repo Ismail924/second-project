@@ -1,0 +1,9 @@
+build/
+*.xcodeproj/
+Info.plist
+Rivaya.entitlements
+Resources/Assets.xcassets/AppIcon.appiconset/AppIcon.png
+*.p8
+*.p12
+*.mobileprovision
+fastlane/report.xml

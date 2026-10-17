@@ -197,6 +197,7 @@
       </div>
       <p class="fineprint" style="text-align:left">Общие напоминания, привычки и цели работают независимо. Для привычки или цели можно задать своё время; тихий режим блокирует уведомления в выбранный ночной интервал.</p>
       <button class="primary full" id="saveRemindersBtn">Сохранить время</button>
+      <p id="nativeNotificationStatus" class="fineprint" role="status"></p>
       <button class="secondary full" id="testReminderBtn" style="margin-top:10px">Тест уведомления</button>
     </section>
   </div>
@@ -217,7 +218,7 @@
   <div class="modal" id="onboardingModal" aria-hidden="true">
     <div class="modal-backdrop"></div>
     <section class="modal-card onboarding-card" role="dialog" aria-modal="true" aria-labelledby="onboardingTitle">
-      <div class="onboarding-logo brand-image"><img src="icons/icon-192.png" alt="RIVAYA" /></div>
+      <div class="onboarding-logo brand-image"><img src="logo.svg" alt="RIVAYA" /></div>
       <div class="modal-head"><div><h2 id="onboardingTitle">Настроим RIVAYA за минуту</h2><p class="modal-subtitle">Имя и цель по шагам можно изменить позже.</p></div></div>
       <label>Как к вам обращаться<input id="onboardingName" maxlength="30" placeholder="Имя" /></label>
       <label>Цель по шагам<input id="onboardingStepGoal" type="number" min="1000" max="100000" step="500" value="8000" /></label>
@@ -230,6 +231,7 @@
   <script>
     window.addEventListener('load',()=>{setTimeout(()=>document.getElementById('rivayaSplash')?.classList.add('hide'),650);setTimeout(()=>document.getElementById('rivayaSplash')?.remove(),1200)});
   </script>
+  <script src="sync-core.js"></script>
   <script src="app-rivaya.js"></script>
 </body>
 </html>

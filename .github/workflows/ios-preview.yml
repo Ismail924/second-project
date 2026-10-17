@@ -1,0 +1,41 @@
+name: RIVAYA iOS compile check
+on:
+  workflow_dispatch:
+  push:
+    branches: ['rivaya4/ios-sync-foundation', 'main']
+    paths: ['rivaya-next/**', '.github/workflows/ios-preview.yml']
+permissions:
+  contents: read
+jobs:
+  simulator:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node rivaya-next/tests/sync-check.cjs && node rivaya-next/tests/sync-transport-check.cjs && node rivaya-next/tests/state-check.cjs
+      - run: bash rivaya-next/ios/scripts/select-xcode.sh
+      - run: python3 rivaya-next/ios/scripts/prepare-resources.py
+      - run: ruby -c rivaya-next/ios/fastlane/Fastfile
+      - run: brew install xcodegen
+      - name: Generate project from shared RIVAYA sources
+        working-directory: rivaya-next/ios
+        run: xcodegen generate
+      - name: Compile for simulator (not a signed TestFlight build)
+        working-directory: rivaya-next/ios
+        run: xcodebuild -project Rivaya.xcodeproj -scheme Rivaya -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
+      - name: Run real iOS simulator smoke test
+        working-directory: rivaya-next/ios
+        run: |
+          DEVICE=$(xcrun simctl list devices available --json | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next(v["udid"] for k,vs in d["devices"].items() if "iOS" in k for v in vs if "iPhone" in v["name"]))')
+          xcodebuild test -project Rivaya.xcodeproj -scheme Rivaya -destination "platform=iOS Simulator,id=$DEVICE" -derivedDataPath build -resultBundlePath build/Smoke.xcresult CODE_SIGNING_ALLOWED=NO
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: RIVAYA-iOS-smoke-results
+          path: rivaya-next/ios/build/Smoke.xcresult
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RIVAYA-iOS-SIMULATOR-NOT-FOR-IPHONE
+          path: rivaya-next/ios/build/Build/Products/Debug-iphonesimulator/Rivaya.app
