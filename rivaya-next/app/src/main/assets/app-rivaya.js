@@ -174,6 +174,10 @@ function healthSource(){
   if(/Android/i.test(ua))return 'Health Connect';
   return 'Системная активность';
 }
+function healthKitDisclosure(){
+  if(!window.RIVAYA_IOS)return '';
+  return `<section class="card source-card" aria-label="Apple Health и HealthKit"><h3>Шаги из Apple Health («Здоровье»)</h3><p class="subtle">RIVAYA использует HealthKit, чтобы с вашего разрешения читать количество шагов из приложения «Здоровье» и показывать дневную активность и прогресс.</p><p class="subtle">Доступ необязателен. Мы только читаем шаги, не изменяем данные «Здоровья» и не передаём их разработчику или рекламным сервисам.</p><button class="ghost full" data-nav="activity">Подробнее о шагах и доступе</button></section>`;
+}
 function dateKey(d){const x=new Date(d);const y=x.getFullYear();const m=String(x.getMonth()+1).padStart(2,'0');const day=String(x.getDate()).padStart(2,'0');return `${y}-${m}-${day}`}
 function doneOnDate(id,date){return !!state.checks[`${dateKey(date)}_${id}`]}
 function setDoneOnDate(id,date,val){state.checks[`${dateKey(date)}_${id}`]=val;save();render()}
@@ -429,6 +433,7 @@ function renderHabits(){
 function renderActivity(){
   if(!activityConnected()){
     return `${pageHead('Активность','Шаги будут считаться телефоном автоматически.','<button class="secondary" data-open="stepGoalModal">Цель: '+fmtNum(state.activity.stepGoal)+'</button>')}
+    ${healthKitDisclosure()}
     ${activityConnectCard(false)}
     <div class="section-title"><h2>Как это будет работать</h2></div>
     <div class="grid three">
@@ -446,6 +451,7 @@ function renderActivity(){
   const names=['Пн','Вт','Ср','Чт','Пт','Сб','Сегодня'];
   const bars=hist.map((v,i)=>`<div class="step-day"><div class="step-bar-wrap"><i style="height:${Math.max(7,Math.round(v/max*100))}%"></i></div><b>${names[i]}</b><span>${v?fmtNum(v):'—'}</span></div>`).join('');
   return `${pageHead('Активность','Автоматические шаги и движение за день.','<button class="primary" data-open="stepGoalModal">Изменить цель</button>')}
+  ${healthKitDisclosure()}
   <div class="grid two"><section class="card activity-hero"><div class="activity-ring" style="--p:${stepPct()}"><div><span>Сегодня</span><strong>${fmtNum(state.activity.steps)}</strong><small>шагов</small></div></div><div class="activity-summary"><div><span>Личная цель</span><b>${fmtNum(state.activity.stepGoal)}</b></div><div><span>Выполнено</span><b>${stepPct()}%</b></div><div><span>Расстояние</span><b>${stepDistance()} км</b></div><div><span>Активность</span><b>≈ ${activeMinutes()} мин</b></div></div></section>
   <section class="card source-card"><div class="source-head"><div class="source-icon">✓</div><div><h3>Шаги подключены</h3><p>${healthSource()}</p></div></div><p class="subtle">Количество шагов обновляется автоматически. В рабочем мобильном приложении RIVAYA не будет предлагать ручное изменение этого числа.</p><button class="ghost full" data-health-manage>Настройки доступа</button></section></div>
   <div class="section-title"><h2>Последние 7 дней</h2></div><section class="card"><div class="steps-week">${bars}</div></section>
@@ -1236,14 +1242,14 @@ renderToday=function(){
 
   const stepsHtml=activityConnected()
     ? `<section class="rv-target-mini rv-steps-target rv-tap-card" data-nav="activity">
-         <div class="rv-target-mini-head"><span>Шаги сегодня</span><button>›</button></div>
+         <div class="rv-target-mini-head"><span>${window.RIVAYA_IOS?'Шаги · Apple Health':'Шаги сегодня'}</span><button>›</button></div>
          <div class="rv-target-steps-value">${fmtNum(state.activity.steps)}</div>
          <p>из ${fmtNum(state.activity.stepGoal)} · ${stepDistance()} км</p>
          <div class="rv-target-link">${stepPct()}% дневной цели →</div>
          <div class="rv-target-art rv-foot-art">${rvUiIcon('steps')}</div>
        </section>`
     : `<section class="rv-target-mini rv-steps-target rv-tap-card" data-health-access>
-         <div class="rv-target-mini-head"><span>Шаги сегодня</span><button>›</button></div>
+         <div class="rv-target-mini-head"><span>${window.RIVAYA_IOS?'Шаги · Apple Health':'Шаги сегодня'}</span><button>›</button></div>
          <div class="rv-target-steps-value">—</div>
          <p>Доступ к шагам не включён</p>
          <div class="rv-target-link">Подключить реальные шаги →</div>
@@ -1289,6 +1295,7 @@ renderToday=function(){
     </section>
 
     <div class="rv-target-mini-grid">${goalHtml}${stepsHtml}</div>
+    ${healthKitDisclosure()}
 
     <section class="rv-target-week">
       <div class="rv-target-week-icon">${rvUiIcon('bars')}</div>
@@ -1399,7 +1406,7 @@ renderProfile=function(){
       <div class="rv-target-settings">
         <div class="rv-target-setting" ${health?'data-health-manage':'data-health-access'}>
           <div class="rv-target-setting-icon">${rvUiIcon('heart')}</div>
-          <div class="rv-target-setting-copy"><b>Реальные шаги</b><span>${health?'Подключено: '+healthSource():'Подключи системный источник шагов'}</span></div>
+          <div class="rv-target-setting-copy"><b>${window.RIVAYA_IOS?'Apple Health · HealthKit':'Реальные шаги'}</b><span>${health?'Подключено: '+healthSource():(window.RIVAYA_IOS?'Чтение шагов из «Здоровья» с вашего разрешения':'Подключи системный источник шагов')}</span></div>
           <button>${health?'Подключено ✓':'Подключить ›'}</button>
         </div>
         <div class="rv-target-setting" data-open="backupModal">
