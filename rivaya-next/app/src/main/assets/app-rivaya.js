@@ -23,6 +23,8 @@ const defaultState = {
   },
   goals:[],
   habits:[],
+  tasks:[],
+  paths:[],
   checks:{}
 };
 
@@ -99,6 +101,8 @@ function loadState(){
     merged.reminders={...defaultState.reminders,...(s.reminders||{})};
     merged.profile={...defaultState.profile,...(s.profile||{})};
     merged.goalSnapshots={...(s.goalSnapshots||{})};
+    merged.tasks=Array.isArray(s.tasks)?s.tasks:[];
+    merged.paths=Array.isArray(s.paths)?s.paths:[];
     if(!Array.isArray(merged.reminders.times)) merged.reminders.times=clone(defaultState.reminders.times);
     merged.reminders.times=merged.reminders.times.filter(Boolean).slice(0,3);
     if(!['granted','denied'].includes(merged.activity.access))merged.activity.access='denied';
@@ -609,6 +613,7 @@ function restoreBackupText(text){
   if(!incoming.habits.every(validId)||!incoming.goals.every(g=>validId(g)&&Array.isArray(g.steps)&&g.steps.every(validId)))throw new Error('Повреждены записи');
   if(new Set(incoming.habits.map(h=>h.id)).size!==incoming.habits.length||new Set(incoming.goals.map(g=>g.id)).size!==incoming.goals.length)throw new Error('Повторяющиеся записи');
   if(!Object.values(incoming.checks).every(v=>typeof v==='boolean'))throw new Error('Повреждена история');
+  window.RivayaPaths?.validate(incoming);
   const previous=localStorage.getItem(STORAGE_KEY),previousState=state;
   try{
     // Retain a recovery point before replacing live data.
@@ -1150,7 +1155,7 @@ document.addEventListener('pointerdown',()=>{
 currentStatsPeriod='week';
 
 function rvGroup(view){
-  if(view==='goals'||view==='habits'||view==='plan')return 'plan';
+  if(view==='goals'||view==='habits'||view==='plan'||view==='paths')return 'plan';
   if(view==='stats'||view==='calendar'||view==='activity'||view==='progress')return 'progress';
   return view==='profile'?'profile':'today';
 }
@@ -1437,7 +1442,7 @@ renderProfile=function(){
 
 render=function(){
   const view=document.getElementById('view');
-  const fn={today:renderToday,plan:renderPlan,progress:renderProgress,profile:renderProfile,goals:renderGoals,habits:renderHabits,activity:renderActivity,calendar:renderCalendar,stats:renderStats}[currentView]||renderToday;
+  const fn={today:renderToday,plan:renderPlan,paths:()=>window.RivayaPaths.render(),progress:renderProgress,profile:renderProfile,goals:renderGoals,habits:renderHabits,activity:renderActivity,calendar:renderCalendar,stats:renderStats}[currentView]||renderToday;
   view.innerHTML=fn();
   const activeGroup=rvGroup(currentView);
   document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.nav===activeGroup));
