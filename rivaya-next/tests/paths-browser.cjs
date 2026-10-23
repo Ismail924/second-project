@@ -46,12 +46,15 @@ const server=http.createServer((req,res)=>{
     for(const width of [320,390,768]){
       await page.setViewportSize({width,height:844});
       assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'horizontal overflow at '+width);
+      await page.evaluate(()=>window.scrollTo(0,0));
       await page.screenshot({path:path.join(shots,'path-'+width+'.png'),fullPage:true});
     }
     await page.setViewportSize({width:390,height:844});
     await page.locator('[data-rp-action="list"]').click();
+    await page.evaluate(()=>window.scrollTo(0,0));
     await page.screenshot({path:path.join(shots,'paths.png'),fullPage:true});
     await page.locator('.nav-item[data-nav="today"]').click();
+    await page.evaluate(()=>window.scrollTo(0,0));
     await page.screenshot({path:path.join(shots,'today.png'),fullPage:true});
     assert.deepEqual(errors,[]);
     console.log('PASS: real mobile browser create/edit/complete/relaunch/archive, draft preservation, responsive layout');
