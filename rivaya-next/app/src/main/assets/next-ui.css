@@ -2,3 +2,6 @@
 @media(max-width:360px){.nx-panel{padding:14px}.nx-row{gap:8px}.nx-button{padding:10px;font-size:13px}.nx-heading h1{font-size:27px}.nx-number{font-size:38px}.nx-between{flex-wrap:wrap}}
 
 .nx-apple{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;min-height:50px;margin:16px 0;padding:12px 16px;border:1px solid #fff;border-radius:12px;background:#fff;color:#000;font-family:-apple-system,BlinkMacSystemFont,sans-serif;font-size:18px;font-weight:500;cursor:pointer}.nx-apple span{font-size:24px;line-height:1}.nx-apple:disabled{opacity:.6;cursor:wait}.nx-apple:focus-visible{outline:3px solid #8d91ff;outline-offset:4px}
+
+/* Keep the active indicator and SVG hit regions inside each navigation button. */
+.rv-bottom-nav .nav-item{position:relative;overflow:hidden}.rv-bottom-nav .nav-item>*{pointer-events:none}

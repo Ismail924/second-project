@@ -1,6 +1,8 @@
 name: RIVAYA 4.1 internal TestFlight
 on:
   workflow_dispatch:
+  push:
+    branches: [testflight/rivaya-4.1]
   create:
 permissions:
   contents: read
@@ -9,7 +11,7 @@ concurrency:
   cancel-in-progress: false
 jobs:
   test-and-upload:
-    if: github.event_name == 'workflow_dispatch' || (github.event.ref_type == 'branch' && github.event.ref == 'testflight/rivaya-4.1')
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/testflight/rivaya-4.1') || (github.event.ref_type == 'branch' && github.event.ref == 'testflight/rivaya-4.1')
     runs-on: macos-15
     timeout-minutes: 45
     environment: app-store

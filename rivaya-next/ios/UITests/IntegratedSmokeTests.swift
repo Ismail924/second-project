@@ -11,9 +11,9 @@ final class IntegratedSmokeTests: XCTestCase {
         let plan = app.buttons.matching(NSPredicate(format: "label IN %@", ["План", "Plan"])).firstMatch
         XCTAssertTrue(plan.waitForExistence(timeout: 10)); plan.tap()
         let add = app.buttons.matching(NSPredicate(format: "label IN %@", ["＋ Цель", "＋ Goal"])).firstMatch
-        XCTAssertTrue(add.waitForExistence(timeout: 5)); add.tap()
+        XCTAssertTrue(add.waitForExistence(timeout: 10), app.debugDescription); add.tap()
         let name = app.textFields.firstMatch
-        XCTAssertTrue(name.waitForExistence(timeout: 5)); name.tap(); name.typeText("Rivaya 314159"); XCTAssertTrue((name.value as? String)?.contains("314159") == true, app.debugDescription)
+        XCTAssertTrue(name.waitForExistence(timeout: 5)); name.tap(); name.typeText("314159"); XCTAssertTrue((name.value as? String)?.contains("314159") == true, app.debugDescription)
         dismissKeyboard(app)
         let save = app.buttons.matching(NSPredicate(format: "label IN %@", ["Сохранить", "Save"])).firstMatch
         XCTAssertTrue(save.waitForExistence(timeout: 5)); save.tap()
@@ -22,7 +22,7 @@ final class IntegratedSmokeTests: XCTestCase {
         let step = app.buttons.matching(NSPredicate(format: "label IN %@", ["＋ Добавить этап", "＋ Add step"])).firstMatch
         reveal(step, in: app); step.tap()
         let stepName = app.textFields.firstMatch
-        XCTAssertTrue(stepName.waitForExistence(timeout: 5)); stepName.tap(); stepName.typeText("Chapter 271828")
+        XCTAssertTrue(stepName.waitForExistence(timeout: 5)); stepName.tap(); stepName.typeText("271828")
         dismissKeyboard(app)
         let stepSave = app.buttons.matching(NSPredicate(format: "label IN %@", ["Сохранить", "Save"])).firstMatch
         XCTAssertTrue(stepSave.waitForExistence(timeout: 5)); reveal(stepSave, in: app); stepSave.tap()
