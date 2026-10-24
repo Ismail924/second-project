@@ -72,7 +72,7 @@ window.vektorOnNativeSteps=function(payload){
     }else{
       state.activity.access='denied';
       state.activity.steps=0;
-      if(status==='unsupported' || status==='unavailable') state.activity.nativeStatus=status;
+      if(status==='unsupported' || status==='unavailable' || status==='unknown') state.activity.nativeStatus=status;
       else delete state.activity.nativeStatus;
     }
     save();
@@ -159,13 +159,25 @@ function recordDailySnapshots(){
     Object.keys(state.goalSnapshots).forEach(d=>{if(d<cut)delete state.goalSnapshots[d]});
   }catch{}
 }
-function save(){recordDailySnapshots();localStorage.setItem(STORAGE_KEY,JSON.stringify(state));setTimeout(()=>syncSmartReminders(false),0)}
+function save(){recordDailySnapshots();localStorage.setItem(STORAGE_KEY,JSON.stringify(state));captureSyncDraft();setTimeout(()=>syncSmartReminders(false),0)}
+function captureSyncDraft(){
+  // Until authentication is configured, this is strictly a local guest journal.
+  // Never label this as cloud backup or send it to another account implicitly.
+  if(!window.RivayaSync)return;
+  try{new window.RivayaSync.Journal(localStorage).capture('guest',state)}
+  catch(e){console.warn('Local sync draft unavailable; primary local data retained',e)}
+}
 function activityConnected(){return state.activity.access==='granted' && (!state.activity.day || state.activity.day===todayKey())}
 function healthSource(){
   const ua=navigator.userAgent||'';
-  if(/iPhone|iPad|iPod/i.test(ua))return 'Apple Health';
+  if(window.RIVAYA_IOS||/iPhone|iPad|iPod/i.test(ua))return 'Apple Health';
   if(/Android/i.test(ua))return 'Health Connect';
   return 'Системная активность';
+}
+function healthKitDisclosure(compact=false){
+  if(!window.RIVAYA_IOS)return '';
+  if(compact)return `<button class="health-source-summary" data-open="healthInfoModal" aria-haspopup="dialog" aria-controls="healthInfoModal" aria-label="Шаги из Apple Health: информация о HealthKit"><span>Шаги · Apple Health</span><span class="health-source-info" aria-hidden="true">ⓘ</span></button>`;
+  return `<section class="card source-card" aria-label="Apple Health и HealthKit"><h3>Шаги из Apple Health («Здоровье»)</h3><p class="subtle">RIVAYA использует HealthKit, чтобы с вашего разрешения читать количество шагов из приложения «Здоровье» и показывать дневную активность и прогресс.</p><p class="subtle">Доступ необязателен. Мы только читаем шаги, не изменяем данные «Здоровья» и не передаём их разработчику или рекламным сервисам.</p><button class="ghost full" data-nav="activity">Подробнее о шагах и доступе</button></section>`;
 }
 function dateKey(d){const x=new Date(d);const y=x.getFullYear();const m=String(x.getMonth()+1).padStart(2,'0');const day=String(x.getDate()).padStart(2,'0');return `${y}-${m}-${day}`}
 function doneOnDate(id,date){return !!state.checks[`${dateKey(date)}_${id}`]}
@@ -347,8 +359,9 @@ function pageHead(title,sub,actions=''){return `<div class="page-head"><div><h1>
 function activityConnectCard(compact=false){
   const unsupported=state.activity.nativeStatus==='unsupported';
   const unavailable=state.activity.nativeStatus==='unavailable';
-  const title=unsupported?'Health Connect недоступен':unavailable?'Подключите Health Connect':'Доступ к шагам не включён';
-  const copy=unsupported?'На этом устройстве нельзя подключить системный источник шагов.':'Разрешите доступ, чтобы RIVAYA автоматически показывал ваши реальные шаги с телефона.';
+  const unknown=state.activity.nativeStatus==='unknown';
+  const title=unknown?'Нет данных о шагах':unsupported?healthSource()+' недоступен':unavailable?'Подключите '+healthSource():'Доступ к шагам не включён';
+  const copy=unknown?'Проверьте разрешение в «Здоровье» → профиль → Приложения → RIVAYA. Если доступ разрешён, данные появятся после ходьбы.':unsupported?'На этом устройстве нельзя подключить системный источник шагов.':'Разрешите доступ, чтобы RIVAYA автоматически показывал ваши реальные шаги с телефона.';
   return `<section class="permission-card ${compact?'compact':''}" data-nav="activity">
     <div class="permission-card-icon">👟</div>
     <div class="permission-card-main">
@@ -356,7 +369,7 @@ function activityConnectCard(compact=false){
       <div class="permission-card-title">${title}</div>
       <div class="permission-card-copy">${copy}</div>
     </div>
-    <button class="primary permission-action" data-health-access ${unsupported?'disabled':''}>${unsupported?'Недоступно':unavailable?'Подключить':'Разрешить доступ'}</button>
+    <button class="primary permission-action" data-health-access ${unsupported?'disabled':''}>${unsupported?'Недоступно':unknown?'Проверить доступ':unavailable?'Подключить':'Разрешить доступ'}</button>
   </section>`;
 }
 
@@ -421,6 +434,7 @@ function renderHabits(){
 function renderActivity(){
   if(!activityConnected()){
     return `${pageHead('Активность','Шаги будут считаться телефоном автоматически.','<button class="secondary" data-open="stepGoalModal">Цель: '+fmtNum(state.activity.stepGoal)+'</button>')}
+    ${healthKitDisclosure()}
     ${activityConnectCard(false)}
     <div class="section-title"><h2>Как это будет работать</h2></div>
     <div class="grid three">
@@ -438,6 +452,7 @@ function renderActivity(){
   const names=['Пн','Вт','Ср','Чт','Пт','Сб','Сегодня'];
   const bars=hist.map((v,i)=>`<div class="step-day"><div class="step-bar-wrap"><i style="height:${Math.max(7,Math.round(v/max*100))}%"></i></div><b>${names[i]}</b><span>${v?fmtNum(v):'—'}</span></div>`).join('');
   return `${pageHead('Активность','Автоматические шаги и движение за день.','<button class="primary" data-open="stepGoalModal">Изменить цель</button>')}
+  ${healthKitDisclosure()}
   <div class="grid two"><section class="card activity-hero"><div class="activity-ring" style="--p:${stepPct()}"><div><span>Сегодня</span><strong>${fmtNum(state.activity.steps)}</strong><small>шагов</small></div></div><div class="activity-summary"><div><span>Личная цель</span><b>${fmtNum(state.activity.stepGoal)}</b></div><div><span>Выполнено</span><b>${stepPct()}%</b></div><div><span>Расстояние</span><b>${stepDistance()} км</b></div><div><span>Активность</span><b>≈ ${activeMinutes()} мин</b></div></div></section>
   <section class="card source-card"><div class="source-head"><div class="source-icon">✓</div><div><h3>Шаги подключены</h3><p>${healthSource()}</p></div></div><p class="subtle">Количество шагов обновляется автоматически. В рабочем мобильном приложении RIVAYA не будет предлагать ручное изменение этого числа.</p><button class="ghost full" data-health-manage>Настройки доступа</button></section></div>
   <div class="section-title"><h2>Последние 7 дней</h2></div><section class="card"><div class="steps-week">${bars}</div></section>
@@ -550,7 +565,7 @@ function syncSmartReminders(ask=false){
   const payload=JSON.stringify(items);
   try{
     if(window.VektorNative && typeof VektorNative.configureItemReminders==='function'){
-      if(ask && typeof VektorNative.requestNotificationPermission==='function')VektorNative.requestNotificationPermission();
+      if(ask && items.length>0 && typeof VektorNative.requestNotificationPermission==='function')VektorNative.requestNotificationPermission();
       if(!ask && payload===rvLastReminderFingerprint)return true;
       VektorNative.configureItemReminders(payload);
       rvLastReminderFingerprint=payload;
@@ -558,7 +573,7 @@ function syncSmartReminders(ask=false){
     }
   }catch(e){}
   const times=collectSmartReminderTimes().slice(0,3);
-  return nativeReminderConfigure(times.length>0,times,ask);
+  return nativeReminderConfigure(times.length>0,times,ask && times.length>0);
 }
 function smartReminderSummary(){
   const items=collectSmartReminderItems();
@@ -662,6 +677,7 @@ document.addEventListener('click',e=>{
     }catch(_e){window.location.href=url}
     return;
   }
+  if(e.target.closest('[data-privacy]')){if(window.VektorNative?.showPrivacy)window.VektorNative.showPrivacy();else window.open('privacy.html','_blank');return}
   const avatarPick=e.target.closest('[data-avatar-pick]');
   if(avatarPick){e.preventDefault();rvOpenAvatarPicker();return}
   const avatarRemove=e.target.closest('[data-avatar-remove]');
@@ -817,7 +833,7 @@ document.addEventListener('click',e=>{
   }
   if(e.target.id==='installInside'){installApp();return}
   if(e.target.id==='exportBtn'){exportData();return}
-  if(e.target.id==='resetBtn'){if(confirm('Удалить все локальные данные RIVAYA?')){state=clone(defaultState);save();currentView='today';render();toast('Данные очищены')}return}
+  if(e.target.id==='resetBtn'){if(confirm('Удалить все локальные данные RIVAYA?')){window.VektorNative?.clearNativeData?.();localStorage.removeItem(STORAGE_KEY+'-before-restore');localStorage.removeItem('rivaya-sync-v1:guest');state=clone(defaultState);save();syncSmartReminders(false);currentView='today';render();toast('Данные очищены')}return}
 });
 
 function updateGoalTypeFields(){
@@ -986,7 +1002,7 @@ document.getElementById('requestHealthBtn').addEventListener('click',()=>{
     setTimeout(()=>requestNativeHealthRefresh(),1200);
     setTimeout(()=>requestNativeHealthRefresh(),3500);
   }else{
-    toast('Health Connect доступен только в мобильной Android-версии RIVAYA');
+    toast('Шаги доступны в мобильном приложении RIVAYA');
   }
 });
 
@@ -1018,7 +1034,7 @@ document.getElementById('testReminderBtn')?.addEventListener('click',()=>{
       if(typeof VektorNative.requestNotificationPermission==='function')VektorNative.requestNotificationPermission();
       setTimeout(()=>VektorNative.testNotification(),400);
       toast('Отправляем тестовое уведомление');
-    }else toast('Тест доступен в Android-версии RIVAYA');
+    }else toast('Тест доступен в мобильном приложении RIVAYA');
   }catch(e){toast('Не удалось отправить тест')}
 });
 
@@ -1099,9 +1115,14 @@ function rvEnsureAvatarInput(){
   });
   document.body.appendChild(input);return input;
 }
-function rvOpenAvatarPicker(){rvEnsureAvatarInput().click()}
+function rvOpenAvatarPicker(){if(window.VektorNative?.pickAvatar){window.VektorNative.pickAvatar();return}rvEnsureAvatarInput().click()}
+window.rivayaOnAvatar=function(src){if(!/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(src)||src.length>1000000)return;state.profile.avatarData=src;save();render();toast('Фото профиля обновлено ✓')};
+window.rivayaOnNativeMessage=message=>toast(String(message));
+let rvNotificationStatus='';
+window.rivayaOnNotificationStatus=function(message){rvNotificationStatus=String(message);const el=document.getElementById('nativeNotificationStatus');if(el)el.textContent=rvNotificationStatus;};
 function rvAvatarMarkup(name){
-  const src=state.profile?.avatarData;
+  const raw=state.profile?.avatarData||'';
+  const src=/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(raw)?raw:'';
   const initial=(String(name||'R').trim()[0]||'R').toUpperCase();
   return src?`<img src="${src}" alt="Фото профиля">`:`<span>${esc(initial)}</span>`;
 }
@@ -1117,6 +1138,7 @@ function rvTryFullscreen(){
   }catch(_e){}
 }
 if(/Android/i.test(navigator.userAgent))document.documentElement.classList.add('rv-android');
+if(window.RIVAYA_IOS)document.documentElement.classList.add('ios-native');
 let rvFullscreenAttempted=false;
 document.addEventListener('pointerdown',()=>{
   if(!rvFullscreenAttempted){rvFullscreenAttempted=true;rvTryFullscreen()}
@@ -1221,14 +1243,14 @@ renderToday=function(){
 
   const stepsHtml=activityConnected()
     ? `<section class="rv-target-mini rv-steps-target rv-tap-card" data-nav="activity">
-         <div class="rv-target-mini-head"><span>Шаги сегодня</span><button>›</button></div>
+         <div class="rv-target-mini-head"><span>${window.RIVAYA_IOS?'Шаги · Apple Health':'Шаги сегодня'}</span><button>›</button></div>
          <div class="rv-target-steps-value">${fmtNum(state.activity.steps)}</div>
          <p>из ${fmtNum(state.activity.stepGoal)} · ${stepDistance()} км</p>
          <div class="rv-target-link">${stepPct()}% дневной цели →</div>
          <div class="rv-target-art rv-foot-art">${rvUiIcon('steps')}</div>
        </section>`
     : `<section class="rv-target-mini rv-steps-target rv-tap-card" data-health-access>
-         <div class="rv-target-mini-head"><span>Шаги сегодня</span><button>›</button></div>
+         <div class="rv-target-mini-head"><span>${window.RIVAYA_IOS?'Шаги · Apple Health':'Шаги сегодня'}</span><button>›</button></div>
          <div class="rv-target-steps-value">—</div>
          <p>Доступ к шагам не включён</p>
          <div class="rv-target-link">Подключить реальные шаги →</div>
@@ -1274,6 +1296,7 @@ renderToday=function(){
     </section>
 
     <div class="rv-target-mini-grid">${goalHtml}${stepsHtml}</div>
+    ${healthKitDisclosure(true)}
 
     <section class="rv-target-week">
       <div class="rv-target-week-icon">${rvUiIcon('bars')}</div>
@@ -1384,7 +1407,7 @@ renderProfile=function(){
       <div class="rv-target-settings">
         <div class="rv-target-setting" ${health?'data-health-manage':'data-health-access'}>
           <div class="rv-target-setting-icon">${rvUiIcon('heart')}</div>
-          <div class="rv-target-setting-copy"><b>Реальные шаги</b><span>${health?'Подключено: '+healthSource():'Подключи системный источник шагов'}</span></div>
+          <div class="rv-target-setting-copy"><b>${window.RIVAYA_IOS?'Apple Health · HealthKit':'Реальные шаги'}</b><span>${health?'Подключено: '+healthSource():(window.RIVAYA_IOS?'Чтение шагов из «Здоровья» с вашего разрешения':'Подключи системный источник шагов')}</span></div>
           <button>${health?'Подключено ✓':'Подключить ›'}</button>
         </div>
         <div class="rv-target-setting" data-open="backupModal">
@@ -1395,8 +1418,14 @@ renderProfile=function(){
       </div>
     </div>
 
+    <div class="rv-target-group"><div class="rv-target-group-title">ПРИЛОЖЕНИЕ</div><div class="rv-target-settings">
+      <div class="rv-target-setting"><div class="rv-target-setting-icon">${rvUiIcon('cloud')}</div><div class="rv-target-setting-copy"><b>Данные на этом устройстве</b><span>Сохраняются автоматически. Вход и синхронизация между устройствами пока недоступны.</span></div></div>
+      <div class="rv-target-setting" data-privacy><div class="rv-target-setting-icon">${rvUiIcon('list')}</div><div class="rv-target-setting-copy"><b>Конфиденциальность</b><span>Как RIVAYA работает с данными</span></div><button>Открыть ›</button></div>
+      <div class="rv-target-setting" data-external="mailto:support@rivayaapp.com"><div class="rv-target-setting-icon">${rvUiIcon('external')}</div><div class="rv-target-setting-copy"><b>Поддержка</b><span>support@rivayaapp.com</span></div><button>Написать ›</button></div>
+      <div class="rv-target-setting"><div class="rv-target-setting-icon">×</div><div class="rv-target-setting-copy"><b>Удалить данные</b><span>Очистить цели, привычки и профиль на этом устройстве</span></div><button id="resetBtn">Удалить</button></div>
+    </div></div>
     <section class="rv-target-profile-footer">
-      <div class="rv-target-footer-copy"><b>RIVAYA 4.0.1 RC2</b><span>Цели · привычки · реальные шаги · прогресс</span></div>
+      <div class="rv-target-footer-copy"><b>RIVAYA 4.0.3</b><span>Цели · привычки · реальные шаги · прогресс</span></div>
       <div class="rv-target-author">
         <span>Автор</span>
         <button class="rv-target-instagram" data-external="https://www.instagram.com/_isma_guder_/">
@@ -1420,3 +1449,13 @@ render=function(){
   }
 };
 render();
+// A fixed modal must follow the area above the software keyboard.
+function rvUpdateVisualViewport(){
+  const viewport=window.visualViewport;
+  if(!viewport)return;
+  document.documentElement.style.setProperty('--rv-visual-height',viewport.height+'px');
+  document.documentElement.style.setProperty('--rv-visual-top',viewport.offsetTop+'px');
+}
+window.visualViewport?.addEventListener('resize',rvUpdateVisualViewport);
+window.visualViewport?.addEventListener('scroll',rvUpdateVisualViewport);
+rvUpdateVisualViewport();

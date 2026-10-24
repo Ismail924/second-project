@@ -1,0 +1,61 @@
+default_platform(:ios)
+platform :ios do
+  desc 'Build signed RIVAYA and upload to App Store Connect/TestFlight; never submit review automatically'
+  lane :beta do
+    require 'base64'
+    require 'shellwords'
+    require 'plist'
+    require 'fileutils'
+    require 'securerandom'
+    require 'tmpdir'
+    require 'open3'
+    required = %w[APPLE_CERTIFICATE_P12_BASE64 APPLE_CERTIFICATE_PASSWORD APPLE_PROFILE_BASE64 ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8_BASE64]
+    missing = required.select { |name| ENV[name].to_s.empty? }
+    UI.user_error!("Missing GitHub Actions secrets: #{missing.join(', ')}") unless missing.empty?
+    signing = Dir.mktmpdir('rivaya-signing-')
+    keychain = File.join(signing, 'rivaya.keychain-db')
+    password = SecureRandom.hex(32)
+    begin
+      cert = File.join(signing, 'distribution.p12')
+      profile = File.join(signing, 'rivaya.mobileprovision')
+      File.binwrite(cert, Base64.strict_decode64(ENV.fetch('APPLE_CERTIFICATE_P12_BASE64').gsub(/\s/, '')))
+      File.binwrite(profile, Base64.strict_decode64(ENV.fetch('APPLE_PROFILE_BASE64').gsub(/\s/, '')))
+      File.chmod(0600, cert, profile)
+      # macOS Security cannot reliably import OpenSSL 3's default PKCS#12 MAC.
+      # Repackage with compatible algorithms without exposing private key material.
+      pem = File.join(signing, 'encrypted.pem')
+      compatible_cert = File.join(signing, 'compatible.p12')
+      signing_env = { 'RIVAYA_TEMP_PASSWORD' => password }
+      commands = [
+        ['openssl', 'pkcs12', '-in', cert, '-out', pem, '-passin', 'env:APPLE_CERTIFICATE_PASSWORD', '-passout', 'env:RIVAYA_TEMP_PASSWORD'],
+        ['openssl', 'pkcs12', '-export', '-in', pem, '-out', compatible_cert, '-passin', 'env:RIVAYA_TEMP_PASSWORD', '-passout', 'env:RIVAYA_TEMP_PASSWORD', '-keypbe', 'PBE-SHA1-3DES', '-certpbe', 'PBE-SHA1-3DES', '-macalg', 'sha1']
+      ]
+      commands.each_with_index do |command, index|
+        _stdout, _stderr, status = Open3.capture3(signing_env, *command)
+        UI.user_error!(index.zero? ? 'Cannot decrypt signing certificate: check certificate password secret' : 'Cannot convert signing certificate for macOS') unless status.success?
+      end
+      File.chmod(0600, pem, compatible_cert)
+      create_keychain(path: keychain, password: password, unlock: true, timeout: 3600, add_to_search_list: true)
+      import_certificate(certificate_path: compatible_cert, certificate_password: password, keychain_path: keychain, keychain_password: password)
+      identities, _stderr, status = Open3.capture3('security', 'find-identity', '-v', '-p', 'codesigning', keychain)
+      UI.user_error!('No valid Apple Distribution identity for RIVAYA after import') unless status.success? && identities.include?('Apple Distribution: Ismail Uzbaev (M2329MH9ZX)')
+      install_provisioning_profile(path: profile)
+      decoded = `security cms -D -i #{Shellwords.escape(profile)}`
+      UI.user_error!('Invalid provisioning profile') unless $?.success?
+      plist = Plist.parse_xml(decoded)
+      UI.user_error!('Wrong Apple team') unless plist['TeamIdentifier'] == ['M2329MH9ZX']
+      UI.user_error!('Wrong bundle ID') unless plist.dig('Entitlements', 'application-identifier') == 'M2329MH9ZX.app.rivaya.smart01'
+      UI.user_error!('HealthKit must be enabled in the provisioning profile') unless plist.dig('Entitlements', 'com.apple.developer.healthkit')
+      UI.user_error!('Use an App Store distribution profile') if plist['ProvisionedDevices'] || plist.dig('Entitlements', 'get-task-allow')
+      update_code_signing_settings(path: 'Rivaya.xcodeproj', targets: ['Rivaya'], use_automatic_signing: false, team_id: 'M2329MH9ZX', code_sign_identity: 'Apple Distribution', profile_name: plist['Name'])
+      increment_build_number(build_number: ENV.fetch('RIVAYA_BUILD_NUMBER'), xcodeproj: 'Rivaya.xcodeproj')
+      build_app(project: 'Rivaya.xcodeproj', scheme: 'Rivaya', clean: true, output_directory: 'build/store', output_name: 'RIVAYA.ipa', export_method: 'app-store',
+        export_options: { provisioningProfiles: { 'app.rivaya.smart01' => plist['Name'] }, signingStyle: 'manual', teamID: 'M2329MH9ZX' })
+      api = app_store_connect_api_key(key_id: ENV.fetch('ASC_KEY_ID'), issuer_id: ENV.fetch('ASC_ISSUER_ID'), key_content: ENV.fetch('ASC_KEY_P8_BASE64'), is_key_content_base64: true)
+      upload_to_testflight(api_key: api, app_identifier: 'app.rivaya.smart01', apple_id: '6823716293', ipa: 'build/store/RIVAYA.ipa', skip_waiting_for_build_processing: true, distribute_external: false)
+    ensure
+      delete_keychain(keychain_path: keychain) if File.exist?(keychain)
+      FileUtils.remove_entry(signing) if File.directory?(signing)
+    end
+  end
+end

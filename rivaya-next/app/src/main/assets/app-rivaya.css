@@ -38,7 +38,7 @@ body{padding-bottom:calc(86px + env(safe-area-inset-bottom))}.app-shell{max-widt
 
 
 /* Calendar controls + clearer goal CTA */
-.calendar-nav-btn{min-width:46px;font-size:20px;line-height:1;padding:10px 14px}.calendar-current-btn{min-width:132px}.modal-subtitle{margin:-9px 0 16px;color:var(--muted);font-size:12px;line-height:1.45}.goal-submit{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px;text-align:left;padding:12px 14px!important;border-radius:16px!important;box-shadow:0 12px 34px rgba(109,74,255,.28)!important;transition:.18s}.goal-submit:hover{transform:translateY(-1px);box-shadow:0 16px 38px rgba(109,74,255,.36)!important}.goal-submit:active{transform:translateY(0)}.goal-submit-icon{width:36px;height:36px;border-radius:12px;display:grid;place-items:center;background:rgba(255,255,255,.14);font-size:21px}.goal-submit-text{display:grid;gap:2px}.goal-submit-text b{font-size:14px}.goal-submit-text small{font-size:10px;font-weight:650;color:rgba(255,255,255,.72)}.goal-submit-arrow{font-size:21px}.modal-card input[type=date]::-webkit-calendar-picker-indicator{filter:invert(1);opacity:.75;cursor:pointer}.modal-card input[type=date]{min-height:48px}
+.calendar-nav-btn{min-width:46px;font-size:20px;line-height:1;padding:10px 14px}.calendar-current-btn{min-width:132px}.modal-subtitle{margin:-9px 0 16px;color:var(--muted);font-size:12px;line-height:1.45}.goal-submit{display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:12px;text-align:left;padding:12px 14px!important;border-radius:16px!important;box-shadow:0 12px 34px rgba(109,74,255,.28)!important;transition:.18s}@media(hover:hover) and (pointer:fine){.goal-submit:hover{transform:translateY(-1px);box-shadow:0 16px 38px rgba(109,74,255,.36)!important}}.goal-submit:active{transform:translateY(0)}.goal-submit-icon{width:36px;height:36px;border-radius:12px;display:grid;place-items:center;background:rgba(255,255,255,.14);font-size:21px}.goal-submit-text{display:grid;gap:2px}.goal-submit-text b{font-size:14px}.goal-submit-text small{font-size:10px;font-weight:650;color:rgba(255,255,255,.72)}.goal-submit-arrow{font-size:21px}.modal-card input[type=date]::-webkit-calendar-picker-indicator{filter:invert(1);opacity:.75;cursor:pointer}.modal-card input[type=date]{min-height:48px}
 @media(max-width:520px){.calendar-current-btn{min-width:118px}.streak{min-width:auto}.streak-copy small{display:none}.goal-submit-text small{font-size:9px}}
 
 /* v7: editable goals, completed goals, all-free launch */
@@ -551,3 +551,21 @@ html,body{
 @media(prefers-reduced-motion:reduce){.rv-plan-goal-card,.rv-progress-bar-track i{transition:none}}
 
 .rv-plan-goal-grid > .rv-plan-empty-action{grid-column:1/-1}
+
+.ios-native #installBtn{display:none!important}
+
+/* RIVAYA 4: keep forms inside the visible viewport, including the iOS keyboard. */
+.modal{top:var(--rv-visual-top,0px);bottom:auto;height:var(--rv-visual-height,100dvh)}
+.modal-card{min-width:0;max-height:calc(var(--rv-visual-height,100dvh) - 16px);overflow-y:auto;overscroll-behavior:contain}
+.modal-card label,.modal-card input,.modal-card select,.modal-card textarea{min-width:0;max-width:100%}
+@media(max-width:800px){
+  .modal-card input,.modal-card select,.modal-card textarea{font-size:16px}
+}
+
+/* Keep touch targets stable in iOS WebKit; decorative children are not separate hit targets. */
+button{touch-action:manipulation}
+.goal-submit>*,.goal-submit-text>*{pointer-events:none}
+.rivaya-splash{pointer-events:none}
+.health-source-summary{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:44px;padding:8px 4px;border:0;background:transparent;color:#a9bdd7;font:inherit;font-size:13px;text-align:left;cursor:pointer}
+.health-source-info{display:grid;place-items:center;min-width:28px;min-height:28px;color:#77d6f4;font-size:20px}
+.health-source-summary:focus-visible{outline:2px solid #77d6f4;outline-offset:3px;border-radius:10px}
