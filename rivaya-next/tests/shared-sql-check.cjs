@@ -19,7 +19,8 @@ const sessions={ [A]:'aaaaaaaa-0000-0000-0000-aaaaaaaaaaaa',[B]:'bbbbbbbb-0000-0
  await as(A);await act('add_step',{goal_id:g.id,title:'Read topics',assigned_to:B,deadline:'2026-12-01'});
  const step=(await act('list'))[0].steps[0];assert.equal(step.assigned_to,B);
  await assert.rejects(()=>act('set_step',{goal_id:g.id,step_id:step.id,expected_revision:1,done:true}));
- await as(B);await act('set_step',{goal_id:g.id,step_id:step.id,expected_revision:1,done:true});
+ await as(B);await assert.rejects(()=>act('set_step',{goal_id:g.id,step_id:step.id,done:true}));
+ await act('set_step',{goal_id:g.id,step_id:step.id,expected_revision:1,done:true});
  await assert.rejects(()=>act('set_step',{goal_id:g.id,step_id:step.id,expected_revision:1,done:false}));
  await assert.rejects(()=>db.query('update public.rivaya_shared_steps set assigned_to=$1 where id=$2',[A,step.id]));
  await act('react',{goal_id:g.id,reaction:'support'});await assert.rejects(()=>act('react',{goal_id:g.id,reaction:'free text'}));

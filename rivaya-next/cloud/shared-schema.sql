@@ -16,6 +16,7 @@ create table public.rivaya_members (
   display_name text not null check(length(display_name) between 1 and 60),
   primary key(goal_id,user_id)
 );
+create index rivaya_shared_goals_owner on public.rivaya_shared_goals(owner_id);
 create index rivaya_members_user_goal on public.rivaya_members(user_id,goal_id);
 create table public.rivaya_shared_steps (
   id uuid primary key default gen_random_uuid(),
@@ -28,6 +29,7 @@ create table public.rivaya_shared_steps (
   created_at timestamptz not null default now()
 );
 create index rivaya_shared_steps_goal on public.rivaya_shared_steps(goal_id,created_at);
+create index rivaya_shared_steps_assignee on public.rivaya_shared_steps(assigned_to);
 create table rivaya_private.invites (
   token_hash bytea primary key,
   goal_id uuid not null references public.rivaya_shared_goals(id) on delete cascade,
@@ -42,6 +44,8 @@ create table public.rivaya_shared_activity (
   action text not null check(action in ('joined','step_added','step_updated','step_completed','step_reopened','support','great','keepgoing')),
   created_at timestamptz not null default now()
 );
+create index rivaya_invites_goal on rivaya_private.invites(goal_id);
+create index rivaya_invites_user on rivaya_private.invites(used_by);
 create index rivaya_shared_activity_goal on public.rivaya_shared_activity(goal_id,created_at desc);
 create index rivaya_shared_activity_user on public.rivaya_shared_activity(user_id,created_at desc);
 alter table public.rivaya_shared_goals enable row level security;
@@ -153,7 +157,7 @@ begin
   elsif operation='set_step' then
     select * into step from public.rivaya_shared_steps where id=(args->>'step_id')::uuid and goal_id=gid for update;
     if step.id is null or step.assigned_to is distinct from actor then raise exception 'Assignee required' using errcode='42501'; end if;
-    if step.revision<>(args->>'expected_revision')::bigint then raise exception 'Revision conflict' using errcode='40001'; end if;
+    if step.revision is distinct from (args->>'expected_revision')::bigint then raise exception 'Revision conflict' using errcode='40001'; end if;
     if jsonb_typeof(args->'done') is distinct from 'boolean' then raise exception 'Invalid completion' using errcode='22023'; end if;
     update public.rivaya_shared_steps set done=(args->>'done')::boolean,revision=revision+1 where id=step.id;
     action_name:=case when (args->>'done')::boolean then 'step_completed' else 'step_reopened' end;

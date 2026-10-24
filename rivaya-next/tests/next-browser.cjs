@@ -27,6 +27,39 @@ const server=http.createServer((req,res)=>{const file=path.resolve(root,'.'+(req
   assert.equal(await p.locator('html').getAttribute('lang'),'en');
   for(const v of ['today','plan','progress','profile']){await p.locator('.nav-item[data-nav="'+v+'"]').click();for(const width of [320,390,768]){await p.setViewportSize({width,height:844});assert(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),v+' overflow '+width)}await p.setViewportSize({width:390,height:844});await p.evaluate(()=>scrollTo(0,0));await p.screenshot({path:'next-shots/'+v+'-en.png',fullPage:true})}
   await p.reload();assert.equal(await p.locator('html').getAttribute('lang'),'en');assert.deepEqual(errors,[]);
+  // Exercise the gated account UI with synthetic sessions; no real email or backend.
+  const account=await browser.newPage({viewport:{width:390,height:844}}),accountErrors=[];
+  account.on('pageerror',e=>accountErrors.push(e.message));
+  await account.route('**/backend-config.js',route=>route.fulfill({contentType:'text/javascript',body:'window.RIVAYA_BACKEND={enabled:true,url:"https://example.supabase.co",publishableKey:"sb_publishable_test"};'}));
+  await account.addInitScript(()=>{
+   let saved=null;
+   window.VektorNative={secureSession:text=>{const x=JSON.parse(text);if(x.operation==='write')saved=x.value;if(x.operation==='clear')saved=null;setTimeout(()=>window.rivayaOnSecureSession(JSON.stringify({requestId:x.requestId,value:saved})),0)}};
+  });
+  const owner='aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';let cloud=null;
+  await account.route('https://example.supabase.co/**',async route=>{
+   const request=route.request(),url=request.url();let data={};
+   if(url.includes('grant_type=password'))data={user:{id:owner,email:'test@example.test'},access_token:'synthetic-test-token',refresh_token:'synthetic-test-refresh',expires_at:Date.now()/1000+3600};
+   else if(url.endsWith('/auth/v1/user'))data={id:owner,email:'test@example.test'};
+   else if(url.includes('/rivaya_documents?'))data=cloud?[{user_id:owner,revision:cloud.revision,payload:cloud.payload}]:[];
+   else if(url.endsWith('/rpc/rivaya_save')){const body=request.postDataJSON();cloud={revision:(cloud?.revision||0)+1,payload:body.document};data=cloud.revision}
+   else if(url.endsWith('/rpc/rivaya_shared'))data=[];
+   else if(!url.includes('/auth/v1/logout'))throw Error('Unexpected account request '+url);
+   await route.fulfill({contentType:'application/json',body:JSON.stringify(data)});
+  });
+  await account.goto('http://127.0.0.1:'+server.address().port);await account.locator('#finishOnboardingBtn').click();
+  await account.waitForFunction(()=>window.RivayaAccountUI&&!window.RivayaAccountUI.isLocked());
+  await account.evaluate(()=>{state.profile.language='en';render()});
+  await account.locator('.nav-item[data-nav="profile"]').click();await account.locator('[data-nx="account-login"]').click();
+  await account.locator('[data-account-field="email"]').fill('test@example.test');await account.locator('[data-account-field="password"]').fill('short');
+  await account.locator('#account-form button[type="submit"]').click();
+  await account.waitForFunction(()=>window.RivayaAccounts.active&&window.RivayaAccounts.lastSync);
+  assert.equal(await account.evaluate(()=>localStorage.getItem('rivaya-active-owner')),owner);
+  assert(!(await account.evaluate(()=>JSON.stringify(localStorage))).includes('synthetic-test-token'),'session token never in localStorage');
+  await account.locator('[data-nx="account-shared"]').click();await account.getByRole('heading',{name:'Shared goals'}).waitFor();
+  await account.locator('.nav-item[data-nav="profile"]').click();await account.locator('[data-nx="account-logout"]').click();
+  await account.waitForFunction(()=>!window.RivayaAccounts.active&&!window.RivayaAccountUI.isLocked());
+  assert.equal(await account.evaluate(()=>localStorage.getItem('rivaya-active-owner')),null);assert.deepEqual(accountErrors,[]);
+  await account.close();
   console.log('PASS: quantitative habits, multiple times, partial progress persistence, tasks, goals/steps, RU/EN and mobile overflow checks');
  }finally{await browser.close();server.close()}
 })().catch(e=>{console.error(e);server.close();process.exitCode=1});
