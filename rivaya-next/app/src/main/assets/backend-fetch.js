@@ -14,7 +14,8 @@
       const requestId=String(Date.now())+'-'+Math.random().toString(36).slice(2),signal=options.signal;
       const abort=()=>{const p=waiting.get(requestId);if(p){clearTimeout(p.timer);waiting.delete(requestId);p.cleanup();reject(new DOMException('Aborted','AbortError'))}};
       if(signal?.aborted){reject(new DOMException('Aborted','AbortError'));return}
-      const timer=setTimeout(()=>{const p=waiting.get(requestId);if(p){waiting.delete(requestId);p.cleanup();reject(Error('network_timeout'))}},20000);
+      const slowDelete=String(url).endsWith('/functions/v1/delete-account');
+      const timer=setTimeout(()=>{const p=waiting.get(requestId);if(p){waiting.delete(requestId);p.cleanup();reject(Error('network_timeout'))}},slowDelete?50000:20000);
       const cleanup=()=>signal?.removeEventListener('abort',abort);
       waiting.set(requestId,{resolve,reject,timer,cleanup});signal?.addEventListener('abort',abort,{once:true});
       try{root.VektorNative.backendRequest(JSON.stringify({requestId,url,method:options.method||'GET',headers:options.headers||{},body:options.body||null}))}catch(e){clearTimeout(timer);waiting.delete(requestId);cleanup();reject(e)}

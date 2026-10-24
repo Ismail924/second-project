@@ -17,7 +17,8 @@ enum BackendTransport {
               url.port == nil || url.port == 443,
               ["/auth/v1/","/rest/v1/","/functions/v1/"].contains(where:{url.path.hasPrefix($0)}),
               let method = data["method"] as? String, ["GET","POST","PUT","PATCH","DELETE"].contains(method) else { reply(0,"{}",true);return }
-        var request = URLRequest(url:url,timeoutInterval:15);request.httpMethod=method
+        let timeout: TimeInterval = url.path == "/functions/v1/delete-account" ? 40 : 15
+        var request = URLRequest(url:url,timeoutInterval:timeout);request.httpMethod=method
         let headers = data["headers"] as? [String:String] ?? [:]
         for (key,value) in headers where ["authorization","apikey","content-type"].contains(key.lowercased()) { request.setValue(value,forHTTPHeaderField:key) }
         if let body=data["body"] as? String { request.httpBody=body.data(using:.utf8) }
