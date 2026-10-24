@@ -44,7 +44,7 @@ const server=http.createServer((req,res)=>{const file=path.resolve(root,'.'+(req
   assert((await review.locator('#nx-report-goals').innerText()).includes('2 / 5'));
   assert((await review.locator('.nx-summary-card').last().innerText()).includes('6'));
   for(const width of [320,390,430,768]){await review.setViewportSize({width,height:844});assert(await review.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'progress width '+width)}
-  await review.setViewportSize({width:390,height:844});await review.waitForFunction(()=>!document.getElementById('toast').classList.contains('show'));await review.screenshot({path:'next-shots/progress-redesign-ru.png',fullPage:true,style:'.rv-bottom-nav{visibility:hidden!important}'});
+  await review.setViewportSize({width:390,height:844});await review.waitForFunction(()=>!document.getElementById('toast').classList.contains('show'));await review.screenshot({path:'next-shots/progress-redesign-ru.png',fullPage:true,style:'.rv-bottom-nav.bottom-nav,.toast{display:none!important}'});
   await review.screenshot({path:'next-shots/progress-overview-ru.png'});
   for(const v of ['today','plan','progress','profile']){
    await review.locator('.nav-item[data-nav="'+v+'"]').click();await review.evaluate(()=>scrollTo(0,document.documentElement.scrollHeight));
