@@ -74,6 +74,8 @@ final class RivayaController: UIViewController, WKScriptMessageHandler, WKNaviga
         web.isOpaque = false
         web.backgroundColor = view.backgroundColor
         web.scrollView.backgroundColor = view.backgroundColor
+        // Stop at the last content block instead of exposing empty WebView space.
+        web.scrollView.bounces = false
         web.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(web)
         NSLayoutConstraint.activate([
