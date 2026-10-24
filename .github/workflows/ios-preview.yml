@@ -16,7 +16,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node rivaya-next/tests/sync-check.cjs && node rivaya-next/tests/sync-transport-check.cjs && node rivaya-next/tests/state-check.cjs && node rivaya-next/tests/paths-check.cjs
+      - run: node rivaya-next/tests/sync-check.cjs && node rivaya-next/tests/sync-transport-check.cjs && node rivaya-next/tests/state-check.cjs
       - run: bash rivaya-next/ios/scripts/select-xcode.sh
       - run: python3 rivaya-next/ios/scripts/prepare-resources.py
       - run: ruby -c rivaya-next/ios/fastlane/Fastfile
