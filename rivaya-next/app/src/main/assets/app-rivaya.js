@@ -23,6 +23,8 @@ const defaultState = {
   },
   goals:[],
   habits:[],
+  tasks:[],
+  paths:[],
   checks:{}
 };
 
@@ -99,6 +101,8 @@ function loadState(){
     merged.reminders={...defaultState.reminders,...(s.reminders||{})};
     merged.profile={...defaultState.profile,...(s.profile||{})};
     merged.goalSnapshots={...(s.goalSnapshots||{})};
+    merged.tasks=Array.isArray(s.tasks)?s.tasks:[];
+    merged.paths=Array.isArray(s.paths)?s.paths:[];
     if(!Array.isArray(merged.reminders.times)) merged.reminders.times=clone(defaultState.reminders.times);
     merged.reminders.times=merged.reminders.times.filter(Boolean).slice(0,3);
     if(!['granted','denied'].includes(merged.activity.access))merged.activity.access='denied';
@@ -174,8 +178,9 @@ function healthSource(){
   if(/Android/i.test(ua))return 'Health Connect';
   return 'Системная активность';
 }
-function healthKitDisclosure(){
+function healthKitDisclosure(compact=false){
   if(!window.RIVAYA_IOS)return '';
+  if(compact)return `<button class="health-source-summary" data-open="healthInfoModal" aria-haspopup="dialog" aria-controls="healthInfoModal" aria-label="Шаги из Apple Health: информация о HealthKit"><span>Шаги · Apple Health</span><span class="health-source-info" aria-hidden="true">ⓘ</span></button>`;
   return `<section class="card source-card" aria-label="Apple Health и HealthKit"><h3>Шаги из Apple Health («Здоровье»)</h3><p class="subtle">RIVAYA использует HealthKit, чтобы с вашего разрешения читать количество шагов из приложения «Здоровье» и показывать дневную активность и прогресс.</p><p class="subtle">Доступ необязателен. Мы только читаем шаги, не изменяем данные «Здоровья» и не передаём их разработчику или рекламным сервисам.</p><button class="ghost full" data-nav="activity">Подробнее о шагах и доступе</button></section>`;
 }
 function dateKey(d){const x=new Date(d);const y=x.getFullYear();const m=String(x.getMonth()+1).padStart(2,'0');const day=String(x.getDate()).padStart(2,'0');return `${y}-${m}-${day}`}
@@ -609,6 +614,7 @@ function restoreBackupText(text){
   if(!incoming.habits.every(validId)||!incoming.goals.every(g=>validId(g)&&Array.isArray(g.steps)&&g.steps.every(validId)))throw new Error('Повреждены записи');
   if(new Set(incoming.habits.map(h=>h.id)).size!==incoming.habits.length||new Set(incoming.goals.map(g=>g.id)).size!==incoming.goals.length)throw new Error('Повторяющиеся записи');
   if(!Object.values(incoming.checks).every(v=>typeof v==='boolean'))throw new Error('Повреждена история');
+  window.RivayaPaths?.validate(incoming);
   const previous=localStorage.getItem(STORAGE_KEY),previousState=state;
   try{
     // Retain a recovery point before replacing live data.
@@ -1150,7 +1156,7 @@ document.addEventListener('pointerdown',()=>{
 currentStatsPeriod='week';
 
 function rvGroup(view){
-  if(view==='goals'||view==='habits'||view==='plan')return 'plan';
+  if(view==='goals'||view==='habits'||view==='plan'||view==='paths')return 'plan';
   if(view==='stats'||view==='calendar'||view==='activity'||view==='progress')return 'progress';
   return view==='profile'?'profile':'today';
 }
@@ -1295,7 +1301,7 @@ renderToday=function(){
     </section>
 
     <div class="rv-target-mini-grid">${goalHtml}${stepsHtml}</div>
-    ${healthKitDisclosure()}
+    ${healthKitDisclosure(true)}
 
     <section class="rv-target-week">
       <div class="rv-target-week-icon">${rvUiIcon('bars')}</div>
@@ -1437,7 +1443,7 @@ renderProfile=function(){
 
 render=function(){
   const view=document.getElementById('view');
-  const fn={today:renderToday,plan:renderPlan,progress:renderProgress,profile:renderProfile,goals:renderGoals,habits:renderHabits,activity:renderActivity,calendar:renderCalendar,stats:renderStats}[currentView]||renderToday;
+  const fn={today:renderToday,plan:renderPlan,paths:()=>window.RivayaPaths.render(),progress:renderProgress,profile:renderProfile,goals:renderGoals,habits:renderHabits,activity:renderActivity,calendar:renderCalendar,stats:renderStats}[currentView]||renderToday;
   view.innerHTML=fn();
   const activeGroup=rvGroup(currentView);
   document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.nav===activeGroup));
