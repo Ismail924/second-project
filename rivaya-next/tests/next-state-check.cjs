@@ -45,3 +45,13 @@ run("state.habits[0].freq='3 раза в неделю';window.RivayaNextCore.cha
 run("state.activity.access='granted';state.activity.day=todayKey();state.activity.steps=6280;state.activity.stepGoal=10000;render()");
 assert(els.view.innerHTML.includes('63%'),'native steps included in overview');
 console.log('PASS: report partial quantities, unfinished stages, stored targets, weekly schedules and native step rings');
+
+run("state.goals.push({id:'finished-today',name:'Проверить готовое дело',type:'task',status:'active',createdAt:todayKey(),steps:[{id:'t',name:'Дело',done:false}]});currentView='today';render()");
+assert(els.view.innerHTML.includes('Проверить готовое дело'));
+run("state.goals.find(g=>g.id==='finished-today').steps[0].done=true;syncGoalStatus(state.goals.find(g=>g.id==='finished-today'));render()");
+assert(!els.view.innerHTML.includes('Проверить готовое дело'),'completed task removed from Today');
+run("currentView='plan';render()");assert(els.view.innerHTML.includes('Проверить готовое дело'),'completed task retained in Plan');
+run("window.RivayaNextUI.openEditor('habit')");
+assert.equal(run('window.RivayaNextUI.getDraft().target'),100);assert.equal(run('window.RivayaNextUI.getDraft().unit'),'раз');
+run("window.RivayaNextUI.openEditor('habit','partial')");assert(els.view.innerHTML.includes('Что считаем?'));assert(!els.view.innerHTML.includes('Единица: раз'));
+console.log('PASS: Today task completion preserves history; count habits default to 100 reps with a unit picker');

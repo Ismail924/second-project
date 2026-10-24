@@ -8,8 +8,19 @@ const server=http.createServer((req,res)=>{const file=path.resolve(root,'.'+(req
   await p.goto('http://127.0.0.1:'+server.address().port);await p.locator('#finishOnboardingBtn').click();
   await p.evaluate(()=>{state.profile.language='ru';render()});
   await p.locator('.nav-item[data-nav="plan"]').click();await p.locator('[data-nx="new-habit"]').click();
-  await p.locator('[data-field="name"]').fill('100 отжиманий');await p.locator('[data-field="tracking"]').selectOption('count');
-  await p.locator('[data-field="target"]').fill('100');await p.locator('[data-field="unit"]').fill('раз');
+  await p.locator('[data-field="name"]').fill('100 отжиманий');
+  // Health and sync callbacks must preserve the active editor node and focus.
+  await p.locator('[data-field="name"]').focus();
+  await p.evaluate(()=>{window.editorNameNode=document.querySelector('[data-field="name"]');window.vektorOnNativeSteps({status:'granted',day:todayKey(),steps:1234});render()});
+  assert(await p.evaluate(()=>document.querySelector('[data-field="name"]')===window.editorNameNode&&document.activeElement===window.editorNameNode),'background update preserves input and focus');
+  assert.equal(await p.locator('[data-field="name"]').inputValue(),'100 отжиманий');await p.locator('[data-field="tracking"]').selectOption('count');
+  assert.equal(await p.locator('[data-field="target"]').inputValue(),'100');
+  assert.equal(await p.locator('[data-field="unitChoice"]').inputValue(),'раз');
+  await p.locator('[data-field="unitChoice"]').selectOption('custom');await p.locator('[data-field="unit"]').fill('км');await p.locator('[data-field="unit"]').focus();
+  await p.evaluate(()=>{window.unitNode=document.querySelector('[data-field="unit"]');window.vektorOnNativeSteps({status:'denied'});render()});
+  assert(await p.evaluate(()=>document.querySelector('[data-field="unit"]')===window.unitNode&&document.activeElement===window.unitNode));
+  assert.equal(await p.locator('[data-field="unit"]').inputValue(),'км');
+  await p.locator('[data-field="target"]').fill('100');await p.locator('[data-field="unitChoice"]').selectOption('раз');
   await p.locator('[data-field="reminderEnabled"]').check();
   for(const [i,time]of ['10:00','15:00','20:00'].entries()){await p.locator('[data-nx="add-time"]').click();await p.locator('[data-time="'+i+'"]').fill(time)}
   await p.locator('#nx-form button[type="submit"]').click();
@@ -20,6 +31,8 @@ const server=http.createServer((req,res)=>{const file=path.resolve(root,'.'+(req
   await p.locator('.nav-item[data-nav="plan"]').click();await p.locator('[data-nx="new-task"]').click();await p.locator('[data-field="name"]').fill('Подготовить документы');await p.locator('#nx-form button[type="submit"]').click();
   await p.locator('.nav-item[data-nav="today"]').click();assert((await p.locator('#view').innerText()).includes('Подготовить документы'));
   await p.locator('[data-nx="task-check"]').click();assert.equal(await p.evaluate(()=>state.goals.find(g=>g.type==='task').status),'completed');
+  assert(!(await p.locator('#view').innerText()).includes('Подготовить документы'),'completed task leaves Today');
+  await p.locator('.nav-item[data-nav="plan"]').click();assert((await p.locator('#view').innerText()).includes('Подготовить документы'),'history remains in Plan');
   await p.locator('.nav-item[data-nav="plan"]').click();await p.locator('[data-nx="new-goal"]').click();await p.locator('[data-field="name"]').fill('Подготовиться к экзамену');await p.locator('#nx-form button[type="submit"]').click();
   await p.locator('[data-nx="goal"]').filter({hasText:'Подготовиться к экзамену'}).click();await p.locator('[data-nx="new-step"]').click();await p.locator('[data-field="name"]').fill('Разобрать вопросы');await p.locator('#nx-form button[type="submit"]').click();await p.locator('[data-nx="step"]').click();
   assert.equal(await p.evaluate(()=>state.goals.find(g=>g.type==='regular').status),'completed');
@@ -52,6 +65,8 @@ const server=http.createServer((req,res)=>{const file=path.resolve(root,'.'+(req
    assert(geometry.gap>=8&&geometry.gap<=30,v+' bottom gap '+JSON.stringify(geometry));assert(geometry.overflow<=1);
    await review.screenshot({path:'next-shots/'+v+'-bottom-ru.png'});
   }
+  await review.locator('.nav-item[data-nav="today"]').click();await review.evaluate(()=>scrollTo(0,0));await review.screenshot({path:'next-shots/today-redesign-ru.png'});
+  await review.screenshot({path:'next-shots/today-full-ru.png',fullPage:true,style:'.rv-bottom-nav.bottom-nav,.toast{display:none!important}'});
   await review.locator('.nav-item[data-nav="plan"]').click();await review.evaluate(()=>scrollTo(0,0));await review.screenshot({path:'next-shots/plan-redesign-ru.png',fullPage:true});
   await review.evaluate(()=>{state.activity.access='not_requested';currentView='progress';render()});
   assert.equal(await review.locator('[data-nx="health-access"]').count(),1);assert.equal(await review.locator('.nx-summary-card').last().locator('.nx-ring-copy strong').innerText(),'—');
