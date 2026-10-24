@@ -193,11 +193,21 @@
       const guest=this.storage.getItem(this.workspace('guest'));await this.switchState(null,null,guest?JSON.parse(guest):this.empty());this.pending=null;
       if(old?.access_token)this.auth('logout?scope=local',undefined,'POST',old.access_token).catch(()=>{});
     }
-    async deleteAccount(){
+    async deleteAccount(authorizeApple){
       const owner=this.owner,credentials=await this.credentials();if(!owner||!credentials)throw new AccountError('authentication_required');
-      const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);
+      const user=await this.auth('user',undefined,'GET',credentials.accessToken);
+      if(user?.id!==owner||this.owner!==owner)throw new AccountError('owner_mismatch');
+      let appleAuthorizationCode;
+      if(user.identities?.some(identity=>identity.provider==='apple')){
+        if(typeof authorizeApple!=='function')throw new AccountError('apple_reauthentication_required');
+        const proof=await authorizeApple();
+        if(typeof proof?.authorizationCode!=='string'||!proof.authorizationCode||proof.authorizationCode.length>8192)throw new AccountError('apple_invalid_response');
+        appleAuthorizationCode=proof.authorizationCode;
+      }
+      if(this.owner!==owner)throw new AccountError('cancelled');
+      const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),45000);
       try{
-        const r=await this.fetch(this.url+'/functions/v1/delete-account',{method:'POST',redirect:'error',signal:controller.signal,headers:{apikey:this.key,Authorization:'Bearer '+credentials.accessToken,'Content-Type':'application/json'},body:'{}'});
+        const r=await this.fetch(this.url+'/functions/v1/delete-account',{method:'POST',redirect:'error',signal:controller.signal,headers:{apikey:this.key,Authorization:'Bearer '+credentials.accessToken,'Content-Type':'application/json'},body:JSON.stringify(appleAuthorizationCode?{appleAuthorizationCode}:{})});
         if(!r.ok)throw new AccountError('deletion_failed');
         if(this.owner!==owner)throw new AccountError('cancelled');
         await this.logout();this.storage.removeItem(this.workspace(owner));this.storage.removeItem(this.journal.key(owner));this.storage.removeItem('rivaya-conflict:'+owner);

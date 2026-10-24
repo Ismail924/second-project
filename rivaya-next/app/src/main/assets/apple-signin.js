@@ -7,7 +7,7 @@
     const p=pending;pending=null;clearTimeout(p.timer);
     if(data.error)p.reject(Object.assign(Error(data.error),{code:data.error}));
     else if(typeof data.idToken!=='string'||!data.idToken||typeof data.nonce!=='string'||!data.nonce)p.reject(Object.assign(Error('apple_invalid_response'),{code:'apple_invalid_response'}));
-    else p.resolve({idToken:data.idToken,nonce:data.nonce});
+    else p.resolve({idToken:data.idToken,nonce:data.nonce,authorizationCode:data.authorizationCode});
   };
   root.RivayaAppleSignIn={
     available:()=>root.RIVAYA_IOS===true&&typeof root.VektorNative?.signInWithApple==='function',

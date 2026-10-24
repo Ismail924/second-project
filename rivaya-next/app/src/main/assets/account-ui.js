@@ -61,7 +61,7 @@
    else if(a==='sync')await A.sync();
    else if(a==='logout'){await A.logout();S.cache=[];S.owner=null;currentView='profile'}
    else if(a==='resolve'){await A.resolve(choices);currentView='profile'}
-   else if(a==='delete-confirm'){if(fields.confirm!=='DELETE')throw Error('confirm');await A.deleteAccount();S.cache=[];currentView='profile'}
+   else if(a==='delete-confirm'){if(fields.confirm!=='DELETE')throw Error('confirm');await A.deleteAccount(()=>window.RivayaAppleSignIn.signIn());S.cache=[];currentView='profile'}
    else if(a==='shared'){selected='';mode='';currentView='shared';await S.list()}
    else if(a==='invite'){const result=await S.invite(selected);invite=result.token;mode='invite'}
    else if(a==='share-invite'){

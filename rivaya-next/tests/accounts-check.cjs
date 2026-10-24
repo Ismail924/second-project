@@ -86,6 +86,16 @@ async function fixture(){
   await second.account.loginApple(authorize);assert(second.get().goals.some(g=>g.id==='existing'));
   assert(!second.get().goals.some(g=>g.id==='b-goal'));
   await second.account.logout();
+  const deletion=await fixture();await deletion.account.loginApple(authorize);
+  const normalAuth=deletion.account.auth.bind(deletion.account),normalFetch=deletion.account.fetch;
+  deletion.account.auth=(path,...args)=>path==='user'?Promise.resolve({id:A,identities:[{provider:'apple'}]}):normalAuth(path,...args);
+  let deletionRequests=0;
+  deletion.account.fetch=async(url,options)=>{if(url.endsWith('/functions/v1/delete-account')){deletionRequests++;assert.equal(JSON.parse(options.body).appleAuthorizationCode,'fresh-delete-code');return {ok:true,status:200}}return normalFetch(url,options)};
+  await assert.rejects(()=>deletion.account.deleteAccount(),e=>e.code==='apple_reauthentication_required');
+  await assert.rejects(()=>deletion.account.deleteAccount(async()=>{throw Object.assign(Error('apple_cancelled'),{code:'apple_cancelled'})}),e=>e.code==='apple_cancelled');
+  assert.equal(deletionRequests,0);assert.equal(deletion.account.owner,A);
+  await deletion.account.deleteAccount(async()=>({authorizationCode:'fresh-delete-code'}));
+  assert.equal(deletionRequests,1);assert.equal(deletion.account.owner,null);assert.equal(deletion.storage.getItem(deletion.account.workspace(A)),null);
   console.log('PASS: Apple ID-token exchange, cancellation, malformed response, concurrent login, late response after logout, guest preservation, second-device restoration');
   console.log('PASS: explicit guest import, separate accounts, secure session callbacks, logout restoration, CAS sync, in-flight edits, conflict resolution, startup account isolation');
 })().catch(e=>{console.error(e);process.exitCode=1});

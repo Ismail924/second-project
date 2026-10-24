@@ -63,8 +63,8 @@ templates/code display and authenticated account deletion are still unverified.
 
 1. Verify full Auth configuration and final migration-source history.
 2. Test real native Apple sign-in, accepted bundle audience, cancellation, private relay and
-   real authenticated deletion. Apple credential revocation must be implemented/verified
-   before App Store release (the existing deletion endpoint only revokes Supabase sessions).
+   real authenticated deletion. Apple credential revocation is implemented in apple-revoke.mjs but requires a dedicated
+   Sign in with Apple key in server secrets and live verification before App Store release.
    Email confirmation/recovery delivery remains a gate only for platforms exposing email auth.
 3. Test two accounts/devices, offline edits, restarts, concurrent changes, token
    expiry, logout during requests, deletion and the full invitation lifecycle.
@@ -103,3 +103,20 @@ Automated tests use synthetic Apple credentials and verify exchange body, accoun
 isolation, guest preservation, cancellation, concurrent attempts, stale callbacks,
 timeouts, and restoring the same cloud data to an independent client fixture.
 They do not simulate Apple verification, real email delivery or physical phones.
+
+Apple deletion now requests a fresh native authorization code. Server-side code
+exchanges it directly with Apple using a five-minute ES256 client secret, checks
+the Apple subject against the authenticated Supabase identity, revokes the token,
+then revokes Supabase sessions and deletes the account. All Apple code/token
+values are transient. Missing keys, rejected/used codes and identity mismatches
+fail before Supabase deletion. The App Store Connect upload key is not an Apple
+Sign in signing key and must not be reused.
+Required server secrets: APPLE_SIGN_IN_CLIENT_ID=app.rivaya.smart01,
+APPLE_SIGN_IN_TEAM_ID=M2329MH9ZX, APPLE_SIGN_IN_KEY_ID,
+APPLE_SIGN_IN_PRIVATE_KEY (a dedicated SIWA PKCS#8 private key).
+Do not expose them in this repository, the app or chat.
+
+Deployment of the Apple-aware deletion handler was blocked by automatic approval
+review: replacing the live destructive endpoint needs specific user confirmation.
+The running version 1 endpoint has NOT changed. Prepared version is source-only.
+Do not work around this block through the CLI, SQL or another deployment route.

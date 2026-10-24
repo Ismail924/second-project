@@ -15,7 +15,7 @@ jobs:
           node-version: '22'
       - run: node rivaya-next/tests/state-check.cjs && node rivaya-next/tests/next-state-check.cjs && node rivaya-next/tests/accounts-check.cjs && node rivaya-next/tests/sync-check.cjs && node rivaya-next/tests/sync-transport-check.cjs
       - run: node rivaya-next/tests/backend-fetch-check.cjs
-      - run: node rivaya-next/tests/apple-signin-check.cjs
+      - run: node rivaya-next/tests/apple-signin-check.cjs && node rivaya-next/tests/apple-revoke-check.cjs
       - run: npm install --prefix "$RUNNER_TEMP/rivaya-sql" @electric-sql/pglite@0.5.11
       - run: node rivaya-next/tests/shared-sql-check.cjs
         env:

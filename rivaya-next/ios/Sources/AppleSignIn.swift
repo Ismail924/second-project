@@ -49,10 +49,12 @@ final class AppleSignIn: NSObject, ASAuthorizationControllerDelegate, ASAuthoriz
         guard let credential = authorization.credential as? ASAuthorizationAppleIDCredential,
               credential.state == state, let nonce = nonce,
               let tokenData = credential.identityToken,
-              let token = String(data: tokenData, encoding: .utf8), !token.isEmpty else {
+              let token = String(data: tokenData, encoding: .utf8), !token.isEmpty,
+              let codeData = credential.authorizationCode,
+              let code = String(data: codeData, encoding: .utf8), !code.isEmpty else {
             finish(["error": "apple_invalid_response"]); return
         }
-        finish(["idToken": token, "nonce": nonce])
+        finish(["idToken": token, "nonce": nonce, "authorizationCode": code])
     }
     func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
         guard self.controller === controller else { return }

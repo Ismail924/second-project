@@ -82,7 +82,7 @@ const server=http.createServer((req,res)=>{const file=path.resolve(root,'.'+(req
   });
   await apple.goto('http://127.0.0.1:'+server.address().port);await apple.locator('#finishOnboardingBtn').click();
   await apple.waitForFunction(()=>window.RivayaAccountUI&&!window.RivayaAccountUI.isLocked());
-  await apple.evaluate(()=>{state.profile.language='ru';state.goals.push({id:'existing-local',name:'Сохранить мою цель',steps:[],type:'regular',status:'active'});saveState();render()});
+  await apple.evaluate(()=>{state.profile.language='ru';state.goals.push({id:'existing-local',name:'Сохранить мою цель',steps:[],type:'regular',status:'active'});save();render()});
   await apple.locator('.nav-item[data-nav="profile"]').click();await apple.locator('[data-nx="account-login"]').click();
   assert.equal(await apple.locator('input[type="password"]').count(),0);
   await apple.screenshot({path:'next-shots/apple-login-ru.png',fullPage:true});
