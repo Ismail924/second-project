@@ -1,0 +1,73 @@
+name: RIVAYA 4.1 internal TestFlight
+on:
+  workflow_dispatch:
+  create:
+permissions:
+  contents: read
+concurrency:
+  group: rivaya-41-testflight
+  cancel-in-progress: false
+jobs:
+  test-and-upload:
+    if: github.event_name == 'workflow_dispatch' || (github.event.ref_type == 'branch' && github.event.ref == 'testflight/rivaya-4.1')
+    runs-on: macos-15
+    timeout-minutes: 45
+    environment: app-store
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check data preservation, sync and Apple authentication logic
+        run: |
+          node rivaya-next/tests/state-check.cjs
+          node rivaya-next/tests/next-state-check.cjs
+          node rivaya-next/tests/sync-check.cjs
+          node rivaya-next/tests/sync-transport-check.cjs
+          node rivaya-next/tests/accounts-check.cjs
+          node rivaya-next/tests/backend-fetch-check.cjs
+          node rivaya-next/tests/apple-signin-check.cjs
+          node rivaya-next/tests/apple-revoke-check.cjs
+      - run: npm install --prefix "$RUNNER_TEMP/rivaya-sql" @electric-sql/pglite@0.5.11
+      - run: node rivaya-next/tests/shared-sql-check.cjs
+        env:
+          NODE_PATH: ${{ runner.temp }}/rivaya-sql/node_modules
+      - run: bash rivaya-next/ios/scripts/select-xcode.sh
+      - name: Prepare optional cloud screens for this internal build
+        run: python3 rivaya-next/ios/scripts/enable-cloud-preview.py
+      - run: python3 rivaya-next/ios/scripts/prepare-resources.py
+      - run: ruby -c rivaya-next/ios/fastlane/Fastfile
+      - run: brew install xcodegen
+      - run: xcodegen generate
+        working-directory: rivaya-next/ios
+      - name: Test cloud-enabled iOS guest mode and persistence before signing
+        working-directory: rivaya-next/ios
+        run: |
+          DEVICE=$(xcrun simctl list devices available --json | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next(v["udid"] for k,vs in d["devices"].items() if "iOS" in k for v in vs if "iPhone" in v["name"]))')
+          xcodebuild test -project Rivaya.xcodeproj -scheme Rivaya -destination "platform=iOS Simulator,id=$DEVICE" -derivedDataPath build -resultBundlePath build/CloudSmoke.xcresult CODE_SIGNING_ALLOWED=NO OTHER_SWIFT_FLAGS='-D RIVAYA_CLOUD_PREVIEW'
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+          working-directory: rivaya-next/ios
+      - name: Sign and upload to internal TestFlight (no App Store submission)
+        working-directory: rivaya-next/ios
+        env:
+          APPLE_CERTIFICATE_P12_BASE64: ${{ secrets.APPLE_CERTIFICATE_P12_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_PROFILE_BASE64: ${{ secrets.APPLE_PROFILE_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+          RIVAYA_TESTFLIGHT_RUN: ${{ github.run_number }}
+          FASTLANE_SKIP_UPDATE_CHECK: 'true'
+          FASTLANE_HIDE_CHANGELOG: 'true'
+          FASTLANE_OPT_OUT_USAGE: 'true'
+        run: |
+          export RIVAYA_BUILD_NUMBER=$((41000 + RIVAYA_TESTFLIGHT_RUN))
+          bundle exec fastlane ios beta
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: RIVAYA-4.1-cloud-iOS-test-results
+          path: rivaya-next/ios/build/CloudSmoke.xcresult

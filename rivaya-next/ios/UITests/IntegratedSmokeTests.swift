@@ -33,6 +33,22 @@ final class IntegratedSmokeTests: XCTestCase {
         XCTAssertTrue(card.waitForExistence(timeout: 10), app.debugDescription); card.tap()
         reveal(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "271828")).firstMatch, in: app)
         attach("Persisted stages")
+        #if RIVAYA_CLOUD_PREVIEW
+        // Exercise the real Keychain-enabled app while staying in guest mode.
+        let profiles = app.buttons.matching(NSPredicate(format: "label IN %@", ["Профиль", "Profile"]))
+        guard let profile = profiles.allElementsBoundByIndex.last else { XCTFail(app.debugDescription); return }
+        profile.tap()
+        let login = app.buttons.matching(NSPredicate(format: "label IN %@", ["Войти и синхронизировать", "Sign in and sync"])).firstMatch
+        reveal(login, in: app); login.tap()
+        let apple = app.buttons.matching(NSPredicate(format: "label CONTAINS %@ OR label CONTAINS %@", "Продолжить с Apple", "Continue with Apple")).firstMatch
+        XCTAssertTrue(apple.waitForExistence(timeout: 10), app.debugDescription)
+        XCTAssertEqual(app.secureTextFields.count, 0)
+        attach("Optional Apple sign in")
+        let guest = app.buttons.matching(NSPredicate(format: "label IN %@", ["Продолжить без входа", "Continue without signing in"])).firstMatch
+        XCTAssertTrue(guest.waitForExistence(timeout: 5)); guest.tap(); plan.tap()
+        XCTAssertTrue(card.waitForExistence(timeout: 10), app.debugDescription); card.tap()
+        reveal(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "271828")).firstMatch, in: app)
+        #endif
     }
     private func reveal(_ element: XCUIElement, in app: XCUIApplication) {
         for _ in 0..<5 {
