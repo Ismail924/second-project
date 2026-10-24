@@ -1,4 +1,5 @@
--- Draft additive schema for the RIVAYA project only. Review/test before deployment.
+-- Deployed to RIVAYA uerhkthubarwrikjtxul as 20261024191758.
+-- Source snapshot, not an idempotent migration. Do not reapply to the live project.
 begin;
 create schema if not exists rivaya_private;
 revoke all on schema rivaya_private from public,anon;
