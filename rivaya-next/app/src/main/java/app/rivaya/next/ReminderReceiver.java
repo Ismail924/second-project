@@ -9,7 +9,7 @@ public class ReminderReceiver extends BroadcastReceiver {
             org.json.JSONObject current=ReminderScheduler.currentItem(context,intent.getStringExtra("itemId"));
             if(current==null || !ReminderScheduler.withinTerm(current,System.currentTimeMillis()))return;
             boolean weekdays=intent.getBooleanExtra("weekdaysOnly",false);int day=Calendar.getInstance().get(Calendar.DAY_OF_WEEK);boolean weekend=day==Calendar.SATURDAY||day==Calendar.SUNDAY;
-            if(!weekdays||!weekend)ReminderScheduler.showNotification(context,intent.getStringExtra("title")==null?"RIVAYA":intent.getStringExtra("title"),intent.getStringExtra("body")==null?"Пора сделать следующий шаг.":intent.getStringExtra("body"));
+            if((!weekdays||!weekend)&&ReminderScheduler.allowedDate(current,System.currentTimeMillis()))ReminderScheduler.showNotification(context,current.optString("title","RIVAYA"),current.optString("body","Пора сделать следующий шаг."));
             ReminderScheduler.scheduleNextItem(context,intent);return;
         }
         int slot=intent!=null?intent.getIntExtra("slot",0):0;ReminderScheduler.showNotification(context,"RIVAYA","Пора сделать маленький шаг к своей цели ✦");ReminderScheduler.scheduleNext(context,slot);

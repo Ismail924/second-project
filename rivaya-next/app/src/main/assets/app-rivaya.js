@@ -261,7 +261,7 @@ function habitStats(h,days){
       const k=weekKey(d);
       const item=weeks.get(k)||{days:0,done:0};
       item.days++;
-      if(doneOnDate(h.id,d))item.done++;
+      item.done+=window.RivayaNextCore?.dayCredit(state,h,dateKey(d))??(doneOnDate(h.id,d)?1:0);
       weeks.set(k,item);
     });
     for(const item of weeks.values()){
@@ -273,7 +273,7 @@ function habitStats(h,days){
     eachDate(start,end,d=>{
       if(!habitScheduledOnDate(h,d))return;
       target++;
-      if(doneOnDate(h.id,d))done++;
+      done+=window.RivayaNextCore?.dayCredit(state,h,dateKey(d))??(doneOnDate(h.id,d)?1:0);
     });
   }
   return {p:target?Math.min(100,Math.round(done/target*100)):0,done,target};
@@ -610,6 +610,7 @@ function restoreBackupText(text){
   if(!incoming.habits.every(validId)||!incoming.goals.every(g=>validId(g)&&Array.isArray(g.steps)&&g.steps.every(validId)))throw new Error('Повреждены записи');
   if(new Set(incoming.habits.map(h=>h.id)).size!==incoming.habits.length||new Set(incoming.goals.map(g=>g.id)).size!==incoming.goals.length)throw new Error('Повторяющиеся записи');
   if(!Object.values(incoming.checks).every(v=>typeof v==='boolean'))throw new Error('Повреждена история');
+  window.RivayaNextCore?.validation(incoming);
   const previous=localStorage.getItem(STORAGE_KEY),previousState=state;
   try{
     // Retain a recovery point before replacing live data.

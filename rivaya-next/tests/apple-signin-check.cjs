@@ -1,0 +1,24 @@
+const assert=require('assert'),vm=require('vm'),fs=require('fs'),path=require('path');
+const source=fs.readFileSync(path.join(__dirname,'../app/src/main/assets/apple-signin.js'),'utf8');
+const tick=()=>new Promise(r=>setImmediate(r));
+(async()=>{
+ let request,timer,cleared=0;
+ const context={RIVAYA_IOS:true,Date,Math,Promise,Error,JSON,setTimeout:fn=>{timer=fn;return 1},clearTimeout:()=>{cleared++},VektorNative:{signInWithApple:text=>{request=JSON.parse(text)}}};
+ context.window=context;vm.createContext(context);vm.runInContext(source,context);
+ const bridge=context.RivayaAppleSignIn;assert(bridge.available());
+ const login=bridge.signIn();assert(request.requestId);
+ await assert.rejects(()=>bridge.signIn(),e=>e.code==='apple_busy');
+ context.rivayaOnAppleSignIn('{broken');
+ context.rivayaOnAppleSignIn(JSON.stringify({requestId:'wrong',idToken:'wrong',nonce:'wrong'}));
+ context.rivayaOnAppleSignIn(JSON.stringify({requestId:request.requestId,idToken:'apple-proof',nonce:'raw-nonce'}));
+ assert.equal((await login).nonce,'raw-nonce');assert.equal(cleared,1);
+ const cancelled=bridge.signIn();context.rivayaOnAppleSignIn(JSON.stringify({requestId:request.requestId,error:'apple_cancelled'}));
+ await assert.rejects(()=>cancelled,e=>e.code==='apple_cancelled');
+ const invalid=bridge.signIn();context.rivayaOnAppleSignIn(JSON.stringify({requestId:request.requestId,idToken:'',nonce:'raw'}));
+ await assert.rejects(()=>invalid,e=>e.code==='apple_invalid_response');
+ const timed=bridge.signIn(),old=request.requestId;timer();await assert.rejects(()=>timed,e=>e.code==='apple_timeout');
+ await tick();const next=bridge.signIn();context.rivayaOnAppleSignIn(JSON.stringify({requestId:old,idToken:'stale',nonce:'stale'}));
+ context.rivayaOnAppleSignIn(JSON.stringify({requestId:request.requestId,idToken:'fresh',nonce:'fresh'}));assert.equal((await next).idToken,'fresh');
+ context.RIVAYA_IOS=false;assert(!bridge.available());await assert.rejects(()=>bridge.signIn(),e=>e.code==='apple_unavailable');
+ console.log('PASS: native Apple bridge request isolation, cancellation, malformed callback, timeout and late-response rejection');
+})().catch(e=>{console.error(e);process.exitCode=1});

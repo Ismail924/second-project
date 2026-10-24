@@ -8,6 +8,8 @@ struct ReminderItem: Decodable {
     let time: String
     let weekdaysOnly: Bool
     let endDate: String?
+    let skipDates: [String]?
+    let startDate: String?
 }
 
 @MainActor
@@ -78,11 +80,19 @@ final class ReminderService {
                 guard parts.count == 2, (0...23).contains(parts[0]), (0...59).contains(parts[1]) else { continue }
                 let content = UNMutableNotificationContent()
                 content.title = String(item.title.prefix(150)); content.body = String(item.body.prefix(500)); content.sound = .default
+                let lastDay: Date?
                 if let end = item.endDate, !end.isEmpty {
-                    guard let lastDay = formatter.date(from: end) else { continue }
-                    // Finite habits use dated requests, never repeat after their end date.
-                    for offset in 0..<366 {
-                        guard let day = calendar.date(byAdding: .day, value: offset, to: calendar.startOfDay(for: now)), day <= lastDay else { break }
+                    guard let parsed = formatter.date(from: end) else { continue }
+                    lastDay = parsed
+                } else { lastDay = nil }
+                let excluded = Set(item.skipDates ?? [])
+                // Dated requests allow suppressing a completed day without disabling tomorrow.
+                // Keep the nearest 60 across all items, renewed on saves and app activation.
+                for offset in 0..<60 {
+                        guard let day = calendar.date(byAdding: .day, value: offset, to: calendar.startOfDay(for: now)) else { continue }
+                        if let last = lastDay, day > last { break }
+                        if let first = item.startDate, formatter.string(from: day) < first { continue }
+                        if excluded.contains(formatter.string(from: day)) { continue }
                         let weekday = calendar.component(.weekday, from: day)
                         if item.weekdaysOnly && (weekday == 1 || weekday == 7) { continue }
                         guard let fire = calendar.date(bySettingHour: parts[0], minute: parts[1], second: 0, of: day), fire > now else { continue }
@@ -90,15 +100,6 @@ final class ReminderService {
                         let request = UNNotificationRequest(identifier: "rv-\(token)-\(item.id)-\(offset)", content: content,
                             trigger: UNCalendarNotificationTrigger(dateMatching: components, repeats: false))
                         requests.append((fire, request))
-                    }
-                } else {
-                    let weekdays: [Int?] = item.weekdaysOnly ? [2,3,4,5,6].map { Optional($0) } : [nil]
-                    for weekday in weekdays {
-                        var components = DateComponents(); components.hour = parts[0]; components.minute = parts[1]; components.weekday = weekday
-                        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: true)
-                        let request = UNNotificationRequest(identifier: "rv-\(token)-\(item.id)-\(weekday ?? 0)", content: content, trigger: trigger)
-                        requests.append((trigger.nextTriggerDate() ?? .distantFuture, request))
-                    }
                 }
             }
             // Leave room for a test notification. Renew finite schedules on each app activation.

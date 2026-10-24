@@ -67,7 +67,13 @@ public class MainActivity extends androidx.activity.ComponentActivity {
         webView.getSettings().setMediaPlaybackRequiresUserGesture(false);
         webView.getSettings().setTextZoom(100);
 
-        webView.setWebViewClient(new WebViewClient());
+        webView.setWebViewClient(new WebViewClient(){
+            @Override public boolean shouldOverrideUrlLoading(WebView view,android.webkit.WebResourceRequest request){
+                Uri uri=request.getUrl();if("file".equals(uri.getScheme())&&uri.toString().startsWith("file:///android_asset/"))return false;
+                if("https".equals(uri.getScheme())||"http".equals(uri.getScheme()))try{startActivity(new Intent(Intent.ACTION_VIEW,uri));}catch(Exception ignored){}
+                return true;
+            }
+        });
         webView.setWebChromeClient(new WebChromeClient() {
             @Override
             public boolean onShowFileChooser(
@@ -213,11 +219,20 @@ public class MainActivity extends androidx.activity.ComponentActivity {
 
     @Override
     public void onBackPressed() {
-        if (webView != null && webView.canGoBack()) webView.goBack();
+        if(webView!=null)webView.evaluateJavascript("window.RivayaNextUI ? window.RivayaNextUI.back() : false",value->{if(!"true".equals(value))finish();});
         else super.onBackPressed();
     }
 
     public final class NativeBridge {
+        @JavascriptInterface
+        public void shareText(String text){if(text!=null&&text.length()<=4000)runOnUiThread(()->{Intent intent=new Intent(Intent.ACTION_SEND);intent.setType("text/plain");intent.putExtra(Intent.EXTRA_TEXT,text);startActivity(Intent.createChooser(intent,"RIVAYA"));});}
+        @JavascriptInterface
+        public void backendRequest(String text){BackendTransport.request(text,result->{if(webView!=null)webView.post(()->webView.evaluateJavascript("window.rivayaOnBackendResponse && window.rivayaOnBackendResponse("+JSONObject.quote(result)+")",null));});}
+        @JavascriptInterface
+        public void secureSession(String text) {
+            String result=SessionVault.request(MainActivity.this,text);
+            if(webView!=null)webView.post(()->webView.evaluateJavascript("window.rivayaOnSecureSession && window.rivayaOnSecureSession("+JSONObject.quote(result)+")",null));
+        }
         @JavascriptInterface
         public void refreshSteps() {
             runOnUiThread(() -> { if (healthSteps != null) healthSteps.refresh(); });
