@@ -23,7 +23,10 @@ final class IntegratedSmokeTests: XCTestCase {
         reveal(step, in: app); step.tap()
         let stepName = app.textFields.firstMatch
         XCTAssertTrue(stepName.waitForExistence(timeout: 5)); stepName.tap(); stepName.typeText("Chapter 271828")
-        dismissKeyboard(app); save.tap()
+        dismissKeyboard(app)
+        let stepSave = app.buttons.matching(NSPredicate(format: "label IN %@", ["Сохранить", "Save"])).firstMatch
+        XCTAssertTrue(stepSave.waitForExistence(timeout: 5)); reveal(stepSave, in: app); stepSave.tap()
+        XCTAssertTrue(step.waitForExistence(timeout: 10), app.debugDescription)
         reveal(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "271828")).firstMatch, in: app)
         attach("Goal stages")
         app.terminate(); app.launch(); XCTAssertTrue(plan.waitForExistence(timeout: 10)); plan.tap()
@@ -43,6 +46,18 @@ final class IntegratedSmokeTests: XCTestCase {
         if app.keyboards.firstMatch.exists {
             let done = app.buttons.matching(NSPredicate(format: "label IN %@", ["Done", "Готово"])).firstMatch
             if done.waitForExistence(timeout: 3) { done.tap() }
+            let hidden = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: app.keyboards.firstMatch)
+            XCTAssertEqual(XCTWaiter.wait(for: [hidden], timeout: 5), .completed)
+            // WKWebView's viewport finishes moving after the keyboard leaves accessibility.
+            // Wait for two stable layouts rather than tapping its previous button coordinates.
+            let submit = app.buttons.matching(NSPredicate(format: "label IN %@", ["Сохранить", "Save"])).firstMatch
+            var previous = CGRect.null
+            let settled = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+                let current = submit.frame
+                defer { previous = current }
+                return current != .zero && current == previous && submit.isHittable
+            }, object: submit)
+            XCTAssertEqual(XCTWaiter.wait(for: [settled], timeout: 5), .completed)
         }
     }
     private func attach(_ name: String) {
