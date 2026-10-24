@@ -27,7 +27,7 @@ Do not apply this source to another application/project.
 
 ## Implemented
 
-- Optional email accounts, explicit guest import, separate workspaces, journaled
+- Native iOS Sign in with Apple, optional email accounts on other platforms, explicit guest import, separate workspaces, journaled
   CAS sync, conflict choices, refresh, logout and deletion UI.
 - Native Keychain / encrypted Keystore sessions; no tokens in localStorage.
 - Fixed-host native HTTPS transport, no redirects, external links outside the
@@ -62,8 +62,10 @@ templates/code display and authenticated account deletion are still unverified.
 ## Before enabling or submitting
 
 1. Verify full Auth configuration and final migration-source history.
-2. Test authenticated deletion. Verify confirmation/recovery delivery, including Yandex,
-   rate limits, expired codes and password policy. Require email confirmation.
+2. Test real native Apple sign-in, accepted bundle audience, cancellation, private relay and
+   real authenticated deletion. Apple credential revocation must be implemented/verified
+   before App Store release (the existing deletion endpoint only revokes Supabase sessions).
+   Email confirmation/recovery delivery remains a gate only for platforms exposing email auth.
 3. Test two accounts/devices, offline edits, restarts, concurrent changes, token
    expiry, logout during requests, deletion and the full invitation lifecycle.
 4. Inspect current browser/Android/iOS CI and real-device notifications. Update
@@ -76,3 +78,28 @@ target enter personal sync. Health samples, permissions and device reminder
 settings are excluded. Shared goals expose only explicitly shared content and
 participant names/assignments/activity. Verify PRO entitlement server-side;
 never trust an imported profile. No PRO feature is added by this change.
+
+## Native Apple sign-in implementation
+
+AppleSignIn.swift uses AuthenticationServices with a cryptographically random raw
+nonce, SHA-256 request nonce and state validation. Only the identity token and raw
+nonce cross the local main-frame bridge for Supabase's id_token exchange. The
+server user is verified before switching workspace. Tokens remain in Keychain;
+Apple proof is never persisted. Cancellation does not alter the current workspace.
+The iOS entry screen has Continue with Apple, optional guest import enabled by
+default, and Continue without signing in. It has no email/password fields.
+Original guest data remains independent. Android email code remains unchanged.
+
+Verified live read-only: Apple APPLE_ID_AUTH is enabled as a primary capability
+for app.rivaya.smart01; the Supabase public settings report external.apple=true.
+This does not prove successful real-device login or correct token audience.
+Signing now requires applesignin Default in the distribution profile.
+backend-config.js enabled and appleEnabled remain false until the live gates pass.
+The Supabase connector cannot read/update Auth provider configuration; the
+Dashboard requires a separate login in the current cloud browser. Do not ask for
+passwords in chat or turn off nonce validation to work around a configuration error.
+
+Automated tests use synthetic Apple credentials and verify exchange body, account
+isolation, guest preservation, cancellation, concurrent attempts, stale callbacks,
+timeouts, and restoring the same cloud data to an independent client fixture.
+They do not simulate Apple verification, real email delivery or physical phones.

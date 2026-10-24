@@ -45,6 +45,7 @@ targets:
       path: Rivaya.entitlements
       properties:
         com.apple.developer.healthkit: true
+        com.apple.developer.applesignin: [Default]
   RivayaUITests:
     type: bundle.ui-testing
     platform: iOS

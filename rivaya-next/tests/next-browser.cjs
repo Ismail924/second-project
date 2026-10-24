@@ -60,6 +60,42 @@ const server=http.createServer((req,res)=>{const file=path.resolve(root,'.'+(req
   await account.waitForFunction(()=>!window.RivayaAccounts.active&&!window.RivayaAccountUI.isLocked());
   assert.equal(await account.evaluate(()=>localStorage.getItem('rivaya-active-owner')),null);assert.deepEqual(accountErrors,[]);
   await account.close();
+  // Native Apple UI with a synthetic system bridge; never a real Apple login.
+  const apple=await browser.newPage({viewport:{width:390,height:844}}),appleErrors=[];
+  apple.on('pageerror',e=>appleErrors.push(e.message));
+  await apple.route('**/backend-config.js',route=>route.fulfill({contentType:'text/javascript',body:'window.RIVAYA_BACKEND={enabled:true,appleEnabled:true,url:"https://example.supabase.co",publishableKey:"sb_publishable_test"};'}));
+  await apple.addInitScript(()=>{
+   window.RIVAYA_IOS=true;window.appleCancelled=true;let saved=null;
+   window.VektorNative={
+    secureSession:text=>{const x=JSON.parse(text);if(x.operation==='write')saved=x.value;if(x.operation==='clear')saved=null;setTimeout(()=>window.rivayaOnSecureSession(JSON.stringify({requestId:x.requestId,value:saved})),0)},
+    signInWithApple:text=>{const x=JSON.parse(text);setTimeout(()=>window.rivayaOnAppleSignIn(JSON.stringify(window.appleCancelled?{requestId:x.requestId,error:'apple_cancelled'}:{requestId:x.requestId,idToken:'synthetic-apple-proof',nonce:'synthetic-single-use-nonce'})),0)}
+   };
+  });
+  await apple.route('https://example.supabase.co/**',async route=>{
+   const req=route.request(),url=req.url();let data={};
+   if(url.includes('grant_type=id_token')){assert.equal(req.postDataJSON().provider,'apple');assert.equal(req.postDataJSON().nonce,'synthetic-single-use-nonce');data={user:{id:owner},access_token:'synthetic-apple-session',refresh_token:'synthetic-refresh',expires_at:Date.now()/1000+3600}}
+   else if(url.endsWith('/auth/v1/user'))data={id:owner,email:'private@privaterelay.appleid.com'};
+   else if(url.includes('/rivaya_documents?'))data=[];
+   else if(url.endsWith('/rpc/rivaya_save'))data=1;
+   else if(!url.includes('/auth/v1/logout'))throw Error('Unexpected Apple request '+url);
+   await route.fulfill({contentType:'application/json',body:JSON.stringify(data)});
+  });
+  await apple.goto('http://127.0.0.1:'+server.address().port);await apple.locator('#finishOnboardingBtn').click();
+  await apple.waitForFunction(()=>window.RivayaAccountUI&&!window.RivayaAccountUI.isLocked());
+  await apple.evaluate(()=>{state.profile.language='ru';state.goals.push({id:'existing-local',name:'Сохранить мою цель',steps:[],type:'regular',status:'active'});saveState();render()});
+  await apple.locator('.nav-item[data-nav="profile"]').click();await apple.locator('[data-nx="account-login"]').click();
+  assert.equal(await apple.locator('input[type="password"]').count(),0);
+  await apple.screenshot({path:'next-shots/apple-login-ru.png',fullPage:true});
+  await apple.locator('[data-nx="account-apple"]').click();await apple.waitForFunction(()=>!window.RivayaAccounts.authenticating);
+  assert.equal(await apple.locator('[role="alert"]').count(),0);assert.equal(await apple.evaluate(()=>window.RivayaAccounts.active),false);
+  await apple.evaluate(()=>window.appleCancelled=false);await apple.locator('[data-nx="account-apple"]').click();
+  await apple.waitForFunction(()=>window.RivayaAccounts.active&&window.RivayaAccounts.lastSync);
+  assert(await apple.evaluate(()=>state.goals.some(g=>g.id==='existing-local')));
+  assert(!(await apple.evaluate(()=>JSON.stringify(localStorage))).includes('synthetic-apple-session'));
+  await apple.locator('[data-nx="account-logout"]').click();await apple.waitForFunction(()=>!window.RivayaAccounts.active);
+  assert(await apple.evaluate(()=>state.goals.some(g=>g.id==='existing-local')));assert.deepEqual(appleErrors,[]);
+  await apple.close();
+
   console.log('PASS: quantitative habits, multiple times, partial progress persistence, tasks, goals/steps, RU/EN and mobile overflow checks');
  }finally{await browser.close();server.close()}
 })().catch(e=>{console.error(e);server.close();process.exitCode=1});

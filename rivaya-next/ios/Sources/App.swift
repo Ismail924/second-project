@@ -23,6 +23,7 @@ final class RivayaController: UIViewController, WKScriptMessageHandler, WKNaviga
     private let health = HKHealthStore()
     private var refreshing = false
     private let reminders = ReminderService()
+    private let appleSignIn = AppleSignIn()
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = UIColor(red: 0.03, green: 0.04, blue: 0.08, alpha: 1)
@@ -38,6 +39,7 @@ final class RivayaController: UIViewController, WKScriptMessageHandler, WKNaviga
           shareText: text => window.webkit.messageHandlers.rivaya.postMessage({action:'shareText',text}),
           backendRequest: text => window.webkit.messageHandlers.rivaya.postMessage({action:'backendRequest',text}),
           secureSession: text => window.webkit.messageHandlers.rivaya.postMessage({action:'secureSession',text}),
+          signInWithApple: text => window.webkit.messageHandlers.rivaya.postMessage({action:'signInWithApple',text}),
           clearNativeData: () => window.webkit.messageHandlers.rivaya.postMessage({action:'clearNativeData'}),
           pickAvatar: () => window.webkit.messageHandlers.rivaya.postMessage({action:'pickAvatar'}),
           exportBackupFile: text => window.webkit.messageHandlers.rivaya.postMessage({action:'exportBackupFile',text}),
@@ -100,6 +102,12 @@ final class RivayaController: UIViewController, WKScriptMessageHandler, WKNaviga
             if let text = body["text"] as? String { BackendTransport.request(text) { [weak self] result in self?.callback("rivayaOnBackendResponse",result) } }
         case "secureSession":
             if let text = body["text"] as? String { callback("rivayaOnSecureSession", SessionVault.request(text)) }
+        case "signInWithApple":
+            if let text = body["text"] as? String {
+                appleSignIn.start(text, window: view.window) { [weak self] result in
+                    self?.callback("rivayaOnAppleSignIn", result)
+                }
+            }
         case "debug":
             #if DEBUG
             if let text = body["text"] as? String { NSLog("RIVAYA diagnostic: %@", text) }

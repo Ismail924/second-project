@@ -80,12 +80,25 @@
         const raw=this.storage.getItem(this.workspace('guest'));await this.switchState(null,null,raw?JSON.parse(raw):this.empty());
       }
     }
-    async login(email,password,{importGuest=false}={}){
+    async login(email,password,options={}){
+      return this.authenticate(()=>this.auth('token?grant_type=password',{email:email.trim(),password}),options);
+    }
+    async loginApple(authorize,options={}){
+      return this.authenticate(async()=>{
+        const credential=await authorize();
+        if(typeof credential?.idToken!=='string'||!credential.idToken||credential.idToken.length>16000||typeof credential.nonce!=='string'||!credential.nonce||credential.nonce.length>256)throw new AccountError('apple_invalid_response');
+        return this.auth('token?grant_type=id_token',{provider:'apple',id_token:credential.idToken,nonce:credential.nonce});
+      },options);
+    }
+    async authenticate(obtainSession,{importGuest=false}={}){
       if(this.owner)throw new AccountError('logout_required');
+      if(this.locked)throw new AccountError('workspace_busy');
       if(this.authenticating)throw new AccountError('authentication_busy');
       this.authenticating=true;const generation=this.generation;
       try{
-      const session=await this.auth('token?grant_type=password',{email:email.trim(),password});
+      const session=await obtainSession();
+      if(generation!==this.generation)throw new AccountError('cancelled');
+      if(!session?.access_token||!session.refresh_token||!session.user?.id)throw new AccountError('authentication_failed');
       const user=await this.auth('user',undefined,'GET',session.access_token);
       if(!user?.id||session.user?.id!==user.id)throw new AccountError('owner_mismatch');
       if(generation!==this.generation)throw new AccountError('cancelled');

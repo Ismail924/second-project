@@ -14,6 +14,7 @@ async function fixture(){
   const fetch=async(url,opt)=>{
     const token=opt.headers.Authorization?.replace('Bearer ','');
     if(url.includes('/auth/v1/token?grant_type=password')){const {email}=JSON.parse(opt.body),owner=email==='a@example.test'?A:B;return response({user:{id:owner,email},access_token:owner,refresh_token:'refresh-'+owner,expires_at:Date.now()/1000+3600})}
+    if(url.includes('/auth/v1/token?grant_type=id_token')){const body=JSON.parse(opt.body);assert.equal(body.provider,'apple');assert(body.nonce);const owner=body.id_token==='apple-a'?A:B;return response({user:{id:owner},access_token:owner,refresh_token:'refresh-'+owner,expires_at:Date.now()/1000+3600})}
     if(url.endsWith('/auth/v1/user'))return response({id:token});
     if(url.includes('/auth/v1/logout'))return response({},204);
     if(url.includes('rivaya_documents')){const r=rows.get(token);return response(r?[{user_id:token,revision:r.revision,payload:copy(r.document)}]:[])}
@@ -64,5 +65,27 @@ async function fixture(){
   await assert.rejects(()=>quota.account.login('a@example.test','password'),e=>e.code==='workspace_storage_failed');
   assert.equal(quota.account.owner,null);assert.equal(quota.vault(),null);assert(!quota.account.locked);
   assert.equal(quota.get().goals[0].name,'Preserved guest','failed workspace writes roll back without exposing the next account');
+  const apple=await fixture();apple.set({...empty(),goals:[g('existing','Existing goal')]});
+  let calls=0;const authorize=async()=>{calls++;return {idToken:'apple-a',nonce:'single-use-nonce'}};
+  await apple.account.loginApple(authorize,{importGuest:true});
+  assert.equal(calls,1);assert.equal(apple.account.owner,A);
+  assert.deepEqual(apple.get().goals.map(g=>g.id).sort(),['a-goal','existing']);
+  assert(!JSON.stringify(apple.get()).includes('apple-a'));
+  assert(!apple.storage.getItem('apple-a'));
+  await apple.account.logout();
+  const snapshot=JSON.stringify(apple.get());
+  await assert.rejects(()=>apple.account.loginApple(async()=>{throw Object.assign(Error('apple_cancelled'),{code:'apple_cancelled'})}),e=>e.code==='apple_cancelled');
+  assert.equal(JSON.stringify(apple.get()),snapshot);assert.equal(apple.account.owner,null);assert.equal(apple.vault(),null);
+  await assert.rejects(()=>apple.account.loginApple(async()=>({idToken:'',nonce:''})),e=>e.code==='apple_invalid_response');
+  let finish;const pending=apple.account.loginApple(()=>new Promise(r=>{finish=r}));
+  await assert.rejects(()=>apple.account.loginApple(authorize),e=>e.code==='authentication_busy');
+  await apple.account.logout();finish({idToken:'apple-a',nonce:'new-nonce'});
+  await assert.rejects(()=>pending,e=>e.code==='cancelled');assert.equal(apple.account.owner,null);assert.equal(apple.vault(),null);
+  // A second independent device uses the same verified Apple identity and restores cloud data.
+  const second=await fixture();second.rows.set(A,copy(apple.rows.get(A)));
+  await second.account.loginApple(authorize);assert(second.get().goals.some(g=>g.id==='existing'));
+  assert(!second.get().goals.some(g=>g.id==='b-goal'));
+  await second.account.logout();
+  console.log('PASS: Apple ID-token exchange, cancellation, malformed response, concurrent login, late response after logout, guest preservation, second-device restoration');
   console.log('PASS: explicit guest import, separate accounts, secure session callbacks, logout restoration, CAS sync, in-flight edits, conflict resolution, startup account isolation');
 })().catch(e=>{console.error(e);process.exitCode=1});
