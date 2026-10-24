@@ -24,6 +24,7 @@ const server=http.createServer((req,res)=>{
     await page.screenshot({path:path.join(shots,'health-info.png')});
     await page.locator('#healthInfoModal [data-close]').last().click();
     assert.equal(await page.locator('#healthInfoModal.open').count(),0);
+    await page.locator('.nav-item[data-nav="progress"]').click();
     await page.locator('#view [data-nav="activity"]').first().click();
     assert.equal(await page.locator('#view .source-card[aria-label="Apple Health и HealthKit"]').count(),1);
     await page.locator('.nav-item[data-nav="today"]').click();
