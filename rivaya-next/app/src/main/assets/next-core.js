@@ -10,6 +10,12 @@
     return stored?{...stored}:{value:0,target:Number(h.target)||1,unit:h.unit||''};
   }
   function numeric(h){return h.tracking==='count'}
+  function increment(h){return h.increment===undefined?1:h.increment}
+  function addCount(state,id,day,customAmount){
+    const h=state.habits.find(h=>h.id===id);if(!h)throw Error('invalid_count');
+    const amount=customAmount===undefined?increment(h):customAmount;if(!finite(amount)||amount<0.01||amount>1000000)throw Error('invalid_increment');
+    return changeCount(state,id,day,Number((entry(h,day).value+amount).toFixed(6)));
+  }
   function dayCredit(state,h,day){
     if(!numeric(h))return state.checks?.[day+'_'+h.id]?1:0;
     const e=entry(h,day);
@@ -26,6 +32,7 @@
   }
   function validation(state){
     for(const h of state.habits||[]){
+      if(h.increment!==undefined&&(!finite(h.increment)||h.increment<0.01||h.increment>1000000))throw Error('invalid_increment');
       if(h.tracking!==undefined&&!['check','count'].includes(h.tracking))throw Error('invalid_tracking');
       if(numeric(h)&&(!finite(h.target)||h.target<=0||h.target>1000000||typeof h.unit!=='string'||h.unit.length>30))throw Error('invalid_target');
       if(h.reminderTimes!==undefined&&(!Array.isArray(h.reminderTimes)||h.reminderTimes.length>12||h.reminderTimes.some(t=>!timePattern.test(t))))throw Error('invalid_times');
@@ -54,7 +61,7 @@
     const checks=Object.entries(state.checks||{}).filter(([k,v])=>v&&days.includes(k.slice(0,10))).length;
     return {tasks,goals,checks};
   }
-  const api={times,entry,numeric,dayCredit,changeCount,validation,skipDates,reminders,weekSummary};
+  const api={times,entry,numeric,increment,addCount,dayCredit,changeCount,validation,skipDates,reminders,weekSummary};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;
   root.RivayaNextCore=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

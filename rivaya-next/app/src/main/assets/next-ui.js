@@ -2,7 +2,7 @@
 (function(){
   'use strict';
   const C=window.RivayaNextCore;
-  let selected='',draft=null,renderedDraft=null,period=7;
+  let selected='',draft=null,renderedDraft=null,renderedExternalKey='',period=7;
   const lang=()=>state.profile?.language==='en'?'en':state.profile?.language==='ru'?'ru':(/^en/i.test(navigator.language||'')?'en':'ru');
   const t=(ru,en)=>lang()==='en'?en:ru;
   const uid=()=> 'r'+(window.crypto?.randomUUID?.()||Date.now().toString(36)+Math.random().toString(36).slice(2));
@@ -21,7 +21,7 @@
   const days=n=>Array.from({length:n},(_,i)=>{const d=new Date();d.setDate(d.getDate()-n+1+i);return dateKey(d)});
   function habitRow(h){
     const e=C.entry(h,todayKey()),count=C.numeric(h);
-    return `<div class="nx-row"><button class="nx-check ${done(h)?'checked':''}" data-nx="${count?'habit':'check'}" ${attr(h.id)} aria-label="${t('Открыть или отметить привычку','Open or complete habit')}" aria-pressed="${done(h)}">${done(h)?'✓':count?'+':''}</button><button class="nx-row-copy" data-nx="habit" ${attr(h.id)}><b>${esc(h.name)}</b><small>${count?`${num(e.value)} / ${num(e.target)} ${esc(e.unit)}`:frequency(h)}</small>${count?progress(e.value/e.target*100):''}</button>${count?button('＋1','plus',attr(h.id)):button('⋯','habit',attr(h.id))}</div>`;
+    return `<div class="nx-row"><button class="nx-check ${done(h)?'checked':''}" data-nx="${count?'habit':'check'}" ${attr(h.id)} aria-label="${t('Открыть или отметить привычку','Open or complete habit')}" aria-pressed="${done(h)}">${done(h)?'✓':count?'+':''}</button><button class="nx-row-copy" data-nx="habit" ${attr(h.id)}><b>${esc(h.name)}</b><small>${count?`${num(e.value)} / ${num(e.target)} ${esc(e.unit)}`:frequency(h)}</small>${count?progress(e.value/e.target*100):''}</button>${count?button('＋'+num(C.increment(h)),'plus',attr(h.id)):button('⋯','habit',attr(h.id))}</div>`;
   }
   function taskRow(g){
     return `<div class="nx-row"><button class="nx-check ${goalIsComplete(g)?'checked':''}" data-nx="task-check" ${attr(g.id)} aria-label="${t('Отметить задание','Toggle task')}" aria-pressed="${goalIsComplete(g)}">${goalIsComplete(g)?'✓':''}</button><button class="nx-row-copy" data-nx="edit-task" ${attr(g.id)}><b>${esc(g.name)}</b><small>${g.deadline?date(g.deadline):t('Без срока','No due date')}</small></button></div>`;
@@ -43,15 +43,15 @@
       (nextGoal?`<button class="nx-focus nx-next-step" data-nx="goal" ${attr(nextGoal.id)}><small>${t('СЛЕДУЮЩИЙ ЭТАП ЦЕЛИ','NEXT GOAL STEP')}</small><b>${esc(nextGoal.steps.find(s=>!s.done).name)}</b><span>${t('Цель','Goal')}: ${esc(nextGoal.name)} · ${t('Открыть →','Open →')}</span></button>`:'')+
       (gs.length?panel(t('Мои цели','My goals'),gs.slice(0,3).map(goalCard).join('')):'')+
       `<button class="nx-today-steps" data-nav="activity">${ring(activityConnected()?stepPct():0,t('Шаги','Steps'),'','green',!activityConnected())}<span><small>${window.RIVAYA_IOS?'Apple Health':'Health Connect'} · ${t('сегодня','today')}</small><b>${activityConnected()?num(state.activity.steps)+' '+t('шагов','steps'):t('Подключить шаги','Connect steps')}</b><em>${activityConnected()?t('Цель: ','Target: ')+num(state.activity.stepGoal):t('Разрешить доступ →','Allow access →')}</em></span><strong aria-hidden="true">›</strong></button>`+
-      (window.RIVAYA_IOS?button('Apple Health · HealthKit ⓘ','health-info'):'');
+      (window.RivayaAccountUI?.friendsEntry?.(true)||'')+(window.RIVAYA_IOS?button('Apple Health · HealthKit ⓘ','health-info'):'');
   }
   function plan(){
     const tasks=state.goals.filter(g=>g.type==='task'),gs=state.goals.filter(g=>g.type!=='task');
     return head(t('План','Plan'),t('Твои дела, привычки и результаты','Your tasks, habits and outcomes'))+
-      `<div class="nx-actions">${button('＋ '+t('Дело','Task'),'new-task')}${button('＋ '+t('Привычка','Habit'),'new-habit')}${button('＋ '+t('Цель','Goal'),'new-goal')}</div>`+
+      `<div class="nx-actions">${button('＋ '+t('Дело','Task'),'new-task')}${button('＋ '+t('Привычка','Habit'),'new-habit')}${button('＋ '+t('Цель','Goal'),'new-goal')}${window.RivayaAccountUI?button(t('С другом','With a friend'),'account-shared'):''}</div>`+
       panel(t('Дела','Tasks'),tasks.map(taskRow).join('')||empty(t('Добавь любое личное дело.','Add any personal task.')))+
       panel(t('Привычки','Habits'),state.habits.map(habitRow).join('')||empty(t('Пока нет привычек','No habits yet')))+
-      panel(t('Цели','Goals'),gs.map(goalCard).join('')||empty(t('Разбей важный результат на свои этапы.','Break an important outcome into your own steps.')));
+      panel(t('Цели','Goals'),gs.map(goalCard).join('')||empty(t('Разбей важный результат на свои этапы.','Break an important outcome into your own steps.')))+(window.RivayaAccountUI?.friendsEntry?.()||'');
   }
   function nextReminder(h){
     if(!h.reminderEnabled)return t('Выключены','Off');
@@ -64,7 +64,7 @@
     const h=habit();if(!h){currentView='plan';return plan()}
     const e=C.entry(h,todayKey()),count=C.numeric(h);
     return button('‹ '+t('Привычки','Habits'),'plan')+head(esc(h.name),frequency(h))+
-      panel(t('Сегодня','Today'),count?`<div class="nx-number">${num(e.value)} <span>/ ${num(e.target)}</span></div><p class="nx-muted">${esc(e.unit)}</p>${progress(e.value/e.target*100)}<div class="nx-actions">${button('＋1','plus',attr(h.id),true)}${button(t('Изменить','Edit'),'count',attr(h.id))}</div>`:button(done(h)?t('Выполнено ✓','Completed ✓'):t('Отметить выполнение','Mark complete'),'check',attr(h.id),true))+
+      panel(t('Сегодня','Today'),count?`<div class="nx-number">${num(e.value)} <span>/ ${num(e.target)}</span></div><p class="nx-muted">${esc(e.unit)}</p>${progress(e.value/e.target*100)}<div class="nx-actions">${button('＋'+num(C.increment(h)),'plus',attr(h.id),true)}${C.increment(h)!==1?button('＋1','plus-one',attr(h.id)):''}${button(t('Изменить результат','Edit result'),'count',attr(h.id))}${button(t('Прибавка: +','Increment: +')+num(C.increment(h)),'increment',attr(h.id))}</div>`:button(done(h)?t('Выполнено ✓','Completed ✓'):t('Отметить выполнение','Mark complete'),'check',attr(h.id),true))+
       panel(t('Напоминания','Reminders'),`<div class="nx-between"><span>${t('Следующее','Next')}</span><b>${esc(nextReminder(h))}</b></div><p class="nx-muted">${C.times(h).join(' · ')||t('Время не выбрано','No times selected')}</p>${button(t('Настроить','Configure'),'edit-habit',attr(h.id))}`)+
       panel(t('Последние 7 дней','Last 7 days'),days(7).map(d=>{const v=h.counts?.[d];return `<div class="nx-between nx-history"><span>${date(d)}</span><b>${v?`${num(v.value)} / ${num(v.target)} ${esc(v.unit)}`:state.checks[d+'_'+h.id]?'✓':'—'}</b></div>`}).join(''))+
       button(t('Изменить привычку','Edit habit'),'edit-habit',attr(h.id));
@@ -134,7 +134,7 @@
       title=t('Привычка','Habit');
       content+=select('freq',t('Расписание','Schedule'),[['daily',t('Каждый день','Every day')],['weekdays',t('По будням','Weekdays')],['3x',t('3 раза в неделю','3 times a week')]])+
         select('tracking',t('Способ учёта','Tracking'),[['check',t('Простая отметка','Simple check')],['count',t('Количество','Quantity')]])+
-        (draft.tracking==='count'?field('target',t('Сколько в день?','How much per day?'),'number','min="0.01" max="1000000" step="any" inputmode="decimal" placeholder="100" required')+select('unitChoice',t('Что считаем?','What are you counting?'),[['раз',t('Раз (например, отжимания)','Reps (for example, push-ups)')],['минут',t('Минуты','Minutes')],['страниц',t('Страницы','Pages')],['custom',t('Своя единица','Custom unit')]])+(draft.unitChoice==='custom'?field('unit',t('Своя единица','Custom unit'),'text','maxlength="30" placeholder="'+t('Например, км','For example, km')+'" required'):'')+`<p class="nx-form-hint" id="nx-unit-example">${unitExample()}</p>`:'')+
+        (draft.tracking==='count'?field('target',t('Сколько в день?','How much per day?'),'number','min="0.01" max="1000000" step="any" inputmode="decimal" placeholder="100" required')+select('unitChoice',t('Что считаем?','What are you counting?'),[['раз',t('Раз (например, отжимания)','Reps (for example, push-ups)')],['минут',t('Минуты','Minutes')],['страниц',t('Страницы','Pages')],['custom',t('Своя единица','Custom unit')]])+(draft.unitChoice==='custom'?field('unit',t('Своя единица','Custom unit'),'text','maxlength="30" placeholder="'+t('Например, км','For example, km')+'" required'):'')+`<p class="nx-form-hint" id="nx-unit-example">${unitExample()}</p>`+field('increment',t('Прибавлять за одно нажатие','Add per tap'),'number','min="0.01" max="1000000" step="any" inputmode="decimal" required'):'')+
         field('endDate',t('Дата окончания — необязательно','End date — optional'),'date')+
         select('goalId',t('Связать с целью','Link to goal'),[['',t('Без цели','No goal')],...state.goals.filter(g=>g.type!=='task'&&g.type!=='money').map(g=>[g.id,esc(g.name)])])+
         toggle('reminderEnabled',t('Напоминания','Reminders'))+
@@ -146,6 +146,8 @@
       title=t('Своё дело','Your task');content+=field('deadline',t('Дата — необязательно','Date — optional'),'date')+toggle('reminderEnabled',t('Напоминание','Reminder'))+(draft.reminderEnabled?field('reminderTime',t('Время','Time'),'time','required'):'');
     }else if(kind==='step'){
       title=t('Этап цели','Goal step');content+=field('deadline',t('Срок — необязательно','Due date — optional'),'date');
+    }else if(kind==='increment'){
+      title=t('Прибавка за нажатие','Add per tap');content=field('increment',t('Сколько добавлять?','How much to add?'),'number','min="0.01" max="1000000" step="any" inputmode="decimal" required')+`<div class="nx-actions nx-increments">${[1,5,10,20].map(n=>button('＋'+n,'set-increment',`data-amount="${n}"`)).join('')}</div><p class="nx-form-hint">${t('Можно указать своё число. Дневной результат не изменится — изменится только кнопка прибавления.','Choose any amount. Your daily result stays the same; only the increment button changes.')}</p>`;
     }else if(kind==='count'){
       title=t('Изменить результат','Edit result');content=field('value',esc(draft.name),'number','min="0" max="1000000000" step="any" required');
     }else if(kind==='money'){
@@ -161,9 +163,10 @@
   function openEditor(kind,id,stepId){
     const h=state.habits.find(h=>h.id===id),g=state.goals.find(g=>g.id===id);
     draft={kind,id:id||'',name:'',deadline:'',reminderEnabled:false,reminderTime:''};
-    if(kind==='habit')draft={...draft,...clone(h||{}),kind,tracking:h?.tracking||'check',target:h?.target||100,unit:h?.unit||'раз',unitChoice:!h?.unit?'раз':['раз','минут','страниц'].includes(h.unit)?h.unit:'custom',freq:h?habitMode(h):'daily',times:h?C.times(h):[],stopWhenDone:h?.stopWhenDone!==false,goalId:h?.goalId||'',endDate:h?.endDate||''};
+    if(kind==='habit')draft={...draft,...clone(h||{}),kind,tracking:h?.tracking||'check',target:h?.target||100,increment:h?.increment??(h?1:10),unit:h?.unit||'раз',unitChoice:!h?.unit?'раз':['раз','минут','страниц'].includes(h.unit)?h.unit:'custom',freq:h?habitMode(h):'daily',times:h?C.times(h):[],stopWhenDone:h?.stopWhenDone!==false,goalId:h?.goalId||'',endDate:h?.endDate||''};
     if(kind==='goal'||kind==='task')draft={...draft,...clone(g||{}),kind,type:g?.type||'regular'};
     if(kind==='step'){const s=g?.steps.find(s=>s.id===stepId);draft={...draft,...clone(s||{}),id:s?.id||'',owner:id,kind}}
+    if(kind==='increment')draft={...draft,increment:C.increment(h)};
     if(kind==='count')draft={...draft,name:h.name,value:C.entry(h,todayKey()).value};
     if(kind==='money')draft={...draft,value:'',note:''};
     if(kind==='language')draft.language=state.profile.language||'auto';
@@ -179,7 +182,7 @@
       const existing=state.habits.find(h=>h.id===d.id),timeList=[...new Set(d.times.filter(Boolean))].sort();
       if(d.reminderEnabled&&(!timeList.length||timeList.some(x=>!/^([01]\d|2[0-3]):[0-5]\d$/.test(x))))throw Error(t('Выбери время напоминаний','Choose reminder times'));
       if(d.endDate&&d.endDate<(existing?.createdAt||todayKey()))throw Error(t('Проверь дату окончания','Check the end date'));
-      const next={...(existing||{}),id:existing?.id||uid(),name,freq:{daily:'Каждый день',weekdays:'По будням','3x':'3 раза в неделю'}[d.freq],tracking:d.tracking,target:Number(d.target),unit:String(d.unit||'').trim(),createdAt:existing?.createdAt||todayKey(),endDate:d.endDate,goalId:d.goalId,reminderEnabled:!!d.reminderEnabled,reminderTimes:timeList,reminderTime:timeList[0]||'',stopWhenDone:!!d.stopWhenDone};
+      const next={...(existing||{}),id:existing?.id||uid(),name,freq:{daily:'Каждый день',weekdays:'По будням','3x':'3 раза в неделю'}[d.freq],tracking:d.tracking,target:Number(d.target),increment:Number(d.increment),unit:String(d.unit||'').trim(),createdAt:existing?.createdAt||todayKey(),endDate:d.endDate,goalId:d.goalId,reminderEnabled:!!d.reminderEnabled,reminderTimes:timeList,reminderTime:timeList[0]||'',stopWhenDone:!!d.stopWhenDone};
       if(existing?.unit&&existing.unit!==next.unit&&Object.values(existing.counts||{}).some(e=>e.value>0))throw Error(t('Для другой единицы создай новую привычку: история не пересчитывается.','Create a new habit for another unit; existing history cannot be converted.'));
       C.validation({habits:[next]});
       if(C.numeric(next)){next.counts={...(next.counts||{})};if(next.counts[todayKey()])next.counts[todayKey()]={...next.counts[todayKey()],target:next.target};else if(state.checks[todayKey()+'_'+next.id])next.counts[todayKey()]={value:next.target,target:next.target,unit:next.unit};if(next.counts[todayKey()])state.checks[todayKey()+'_'+next.id]=next.counts[todayKey()].value>=next.target}
@@ -193,6 +196,10 @@
     }else if(kind==='step'){
       const g=state.goals.find(g=>g.id===d.owner);if(!g)throw Error('Goal missing');
       const s=g.steps.find(s=>s.id===d.id);if(s)Object.assign(s,{name,deadline:d.deadline||''});else g.steps.push({id:uid(),name,deadline:d.deadline||'',done:false});syncGoalStatus(g);
+    }else if(kind==='increment'){
+      const h=state.habits.find(h=>h.id===d.id),value=Number(d.increment);
+      if(!h||!Number.isFinite(value)||value<0.01||value>1000000)throw Error(t('Прибавка: от 0,01 до 1 000 000','Increment: 0.01 to 1,000,000'));
+      h.increment=value;
     }else if(kind==='count')C.changeCount(state,d.id,todayKey(),Number(d.value));
     else if(kind==='money'){const g=state.goals.find(g=>g.id===d.id),value=Number(d.value);if(!g||!Number.isFinite(value)||value<=0)throw Error(t('Укажи положительную сумму','Enter a positive amount'));g.currentAmount=(Number(g.currentAmount)||0)+value;g.contributions=g.contributions||[];g.contributions.push({id:uid(),amount:value,date:todayKey(),note:d.note||''});syncGoalStatus(g)}
     else if(kind==='language')state.profile.language=d.language;
@@ -215,10 +222,11 @@
     const locked=window.RivayaAccountUI?.isLocked?.();
     // Background Health/sync callbacks update state without replacing an active form.
     // Keep the same DOM nodes so the iOS keyboard, cursor and in-progress input survive.
-    if(draft&&renderedDraft===draft&&!locked)return;
+    const externalKey=window.RivayaAccountUI?.editorKey?.()||'';
+    if(!locked&&((draft&&renderedDraft===draft)||(externalKey&&externalKey===renderedExternalKey)))return;
     document.getElementById('view').innerHTML='<div class="nx-screen">'+(locked?window.RivayaAccountUI.lockedView():draft?editor():(routes[currentView]||today)())+'</div>';
-    renderedDraft=locked?null:draft;
-    const group=['habit','goal','habits','goals'].includes(currentView)?'plan':['activity','stats','calendar'].includes(currentView)?'progress':['backup','account','shared'].includes(currentView)?'profile':currentView;
+    renderedDraft=locked?null:draft;renderedExternalKey=locked?'':externalKey;
+    const group=['habit','goal','habits','goals','shared'].includes(currentView)?'plan':['activity','stats','calendar'].includes(currentView)?'progress':['backup','account'].includes(currentView)?'profile':currentView;
     document.querySelectorAll('.nav-item').forEach(b=>{b.classList.toggle('active',b.dataset.nav===group);const small=b.querySelector('small');if(small)small.textContent=({today:t('Сегодня','Today'),plan:t('План','Plan'),progress:t('Прогресс','Progress'),profile:t('Профиль','Profile')})[b.dataset.nav]||''});
     const avatar=document.querySelector('.top-actions .avatar');if(avatar)avatar.innerHTML=rvAvatarMarkup(state.profile.name||'R');
   };
@@ -252,11 +260,12 @@
     else if(a==='new-task'||a==='edit-task')return openEditor('task',id);
     else if(a==='new-goal'||a==='edit-goal')return openEditor('goal',id);
     else if(a==='new-step'||a==='edit-step')return openEditor('step',id,el.dataset.step);
-    else if(['count','money','language','profile-name','step-target','notifications'].includes(a))return openEditor(a,id);
+    else if(['count','increment','money','language','profile-name','step-target','notifications'].includes(a))return openEditor(a,id);
     else if(a==='cancel')draft=null;
     else if(a==='add-time'){if(draft.times.length>=12){toast(t('До 12 времён на привычку','Up to 12 times per habit'));return}draft.times.push('');renderedDraft=null}
     else if(a==='remove-time'){draft.times.splice(Number(el.dataset.index),1);renderedDraft=null}
-    else if(a==='plus'){const h=state.habits.find(h=>h.id===id);if(!habitScheduledOnDate(h,new Date())){toast(t('На сегодня не запланировано','Not scheduled today'));return}C.changeCount(state,id,todayKey(),C.entry(h,todayKey()).value+1);save()}
+    else if(a==='set-increment'){draft.increment=Number(el.dataset.amount);const field=document.querySelector('[data-field="increment"]');if(field)field.value=draft.increment;return}
+    else if(a==='plus'||a==='plus-one'){const h=state.habits.find(h=>h.id===id);if(!habitScheduledOnDate(h,new Date())){toast(t('На сегодня не запланировано','Not scheduled today'));return}try{C.addCount(state,id,todayKey(),a==='plus-one'?1:undefined);save()}catch{toast(t('Не удалось прибавить: проверь количество.','Could not add: check the quantity.'));return}}
     else if(a==='check'){const h=state.habits.find(h=>h.id===id);if(!h||!habitScheduledOnDate(h,new Date())){toast(t('На сегодня не запланировано','Not scheduled today'));return}setDone(id,!doneToday(id))}
     else if(a==='step'){const g=state.goals.find(g=>g.id===id),s=g?.steps.find(s=>s.id===el.dataset.step);if(s){s.done=!s.done;syncGoalStatus(g);save()}}
     else if(a==='task-check'){const g=state.goals.find(g=>g.id===id);if(g){g.steps[0].done=!goalIsComplete(g);syncGoalStatus(g);save()}}

@@ -26,6 +26,10 @@ const server=http.createServer((req,res)=>{const file=path.resolve(root,'.'+(req
   await p.locator('#nx-form button[type="submit"]').click();
   await p.locator('[data-nx="habit"]').filter({hasText:'100 отжиманий'}).first().click();await p.locator('[data-nx="count"]').click();await p.locator('[data-field="value"]').fill('30');await p.locator('#nx-form button[type="submit"]').click();
   assert((await p.locator('.nx-number').innerText()).includes('30'));
+  assert((await p.locator('[data-nx="plus"]').innerText()).includes('10'));await p.locator('[data-nx="plus"]').click();assert((await p.locator('.nx-number').innerText()).includes('40'));
+  await p.locator('[data-nx="increment"]').click();await p.locator('[data-nx="set-increment"][data-amount="20"]').click();await p.locator('#nx-form button[type="submit"]').click();assert((await p.locator('.nx-number').innerText()).includes('40'));await p.locator('[data-nx="plus"]').click();await p.locator('[data-nx="plus-one"]').click();assert((await p.locator('.nx-number').innerText()).includes('61'));
+  await p.locator('[data-nx="count"]').click();await p.locator('[data-field="value"]').fill('30');await p.locator('#nx-form button[type="submit"]').click();
+
   await p.reload();await p.locator('.nav-item[data-nav="plan"]').click();await p.locator('[data-nx="habit"]').filter({hasText:'100 отжиманий'}).first().click();assert((await p.locator('.nx-number').innerText()).includes('30'));
   fs.mkdirSync('next-shots',{recursive:true});await p.screenshot({path:'next-shots/habit.png',fullPage:true});
   await p.locator('.nav-item[data-nav="plan"]').click();await p.locator('[data-nx="new-task"]').click();await p.locator('[data-field="name"]').fill('Подготовить документы');await p.locator('#nx-form button[type="submit"]').click();
@@ -139,6 +143,49 @@ const server=http.createServer((req,res)=>{const file=path.resolve(root,'.'+(req
   await apple.locator('[data-nx="account-logout"]').click();await apple.waitForFunction(()=>!window.RivayaAccounts.active);
   assert(await apple.evaluate(()=>state.goals.some(g=>g.id==='existing-local')));assert.deepEqual(appleErrors,[]);
   await apple.close();
+
+  // End-to-end shared UI with isolated synthetic Apple accounts and a stateful RPC fixture.
+  const people=['11111111-1111-4111-8111-111111111111','22222222-2222-4222-8222-222222222222','33333333-3333-4333-8333-333333333333'];
+  const team=[],sharedErrors=[],inviteToken='ab'.repeat(32);let sharedGoal=null,used=false;
+  for(let i=0;i<3;i++){
+   const page=await browser.newPage({viewport:{width:390,height:844}});team.push(page);page.on('pageerror',e=>sharedErrors.push(e.message));
+   await page.route('**/backend-config.js',route=>route.fulfill({contentType:'text/javascript',body:'window.RIVAYA_BACKEND={enabled:true,appleEnabled:true,url:"https://friends.supabase.co",publishableKey:"sb_publishable_fixture"};'}));
+   await page.addInitScript(()=>{window.RIVAYA_IOS=true;let saved=null;window.VektorNative={secureSession:text=>{const x=JSON.parse(text);if(x.operation==='write')saved=x.value;if(x.operation==='clear')saved=null;setTimeout(()=>window.rivayaOnSecureSession(JSON.stringify({requestId:x.requestId,value:saved})),0)},signInWithApple:text=>{const x=JSON.parse(text);setTimeout(()=>window.rivayaOnAppleSignIn(JSON.stringify({requestId:x.requestId,idToken:'synthetic-proof',nonce:'synthetic-nonce'})),0)},shareText:text=>{window.sharedInvitation=text}}});
+   await page.route('https://friends.supabase.co/**',async route=>{
+    const req=route.request(),url=req.url(),actor=people[i];let data={},status=200;
+    if(url.includes('grant_type=id_token'))data={user:{id:actor},access_token:'synthetic-'+i,refresh_token:'synthetic-refresh-'+i,expires_at:Date.now()/1000+3600};
+    else if(url.endsWith('/auth/v1/user'))data={id:actor};
+    else if(url.includes('/rivaya_documents?'))data=[];
+    else if(url.endsWith('/rpc/rivaya_save'))data=1;
+    else if(url.endsWith('/rpc/rivaya_shared')){
+     const{operation:op,args:a}=req.postDataJSON();assert.equal(req.headers().authorization,'Bearer synthetic-'+i);
+     if(op==='list')data=sharedGoal&&sharedGoal.members.some(m=>m.user_id===actor)?[sharedGoal]:[];
+     else if(op==='create'){assert.equal(i,0);sharedGoal={id:'44444444-4444-4444-8444-444444444444',owner_id:actor,title:a.title,members:[{user_id:actor,name:a.name}],steps:[],activity:[]};data={id:sharedGoal.id}}
+     else if(op==='invite'){assert.equal(actor,sharedGoal.owner_id);data={token:inviteToken,expires_in_days:7}}
+     else if(op==='join'){assert.equal(a.token,inviteToken);if(used){status=400;data={code:'22023'}}else{used=true;sharedGoal.members.push({user_id:actor,name:a.name});data={id:sharedGoal.id}}}
+     else if(op==='add_step'){assert.equal(actor,sharedGoal.owner_id);assert.equal(a.assigned_to,people[1]);sharedGoal.steps.push({id:'55555555-5555-4555-8555-555555555555',title:a.title,assigned_to:a.assigned_to,done:false,revision:1});data={id:sharedGoal.id}}
+     else if(op==='set_step'){const step=sharedGoal.steps[0];assert.equal(actor,step.assigned_to);assert.equal(a.expected_revision,step.revision);step.done=a.done;step.revision++;data={id:sharedGoal.id}}
+     else throw Error('Unexpected shared operation '+op);
+    }else if(!url.endsWith('/auth/v1/logout'))throw Error('Unexpected friend request '+url);
+    await route.fulfill({status,contentType:'application/json',body:JSON.stringify(data)});
+   });
+   await page.goto('http://127.0.0.1:'+server.address().port);await page.locator('#finishOnboardingBtn').click();await page.waitForFunction(()=>window.RivayaAccountUI&&!window.RivayaAccountUI.isLocked());await page.evaluate(()=>{state.profile.language='ru';render()});
+  }
+  const[a,b,c]=team;await a.locator('.nav-item[data-nav="plan"]').click();await a.locator('[data-nx="account-new-shared"]').click();await a.locator('[data-nx="account-apple"]').click();await a.locator('#shared-form').waitFor();
+  await a.locator('[data-account-field="title"]').fill('Тренируемся вместе');await a.locator('[data-account-field="name"]').fill('Исмаил');await a.locator('[data-account-field="title"]').focus();
+  await a.evaluate(()=>{window.sharedTitleNode=document.querySelector('[data-account-field="title"]');window.vektorOnNativeSteps({status:'granted',day:todayKey(),steps:100});render()});
+  assert(await a.evaluate(()=>document.activeElement===window.sharedTitleNode&&document.querySelector('[data-account-field="title"]')===window.sharedTitleNode),'shared form survives Health updates');
+  await a.locator('#shared-form button[type="submit"]').click();await a.locator('[data-nx="account-invite"]').waitFor();await a.locator('[data-nx="account-invite"]').click();await a.locator('.nx-invite').waitFor();await a.locator('[data-nx="account-share-invite"]').click();await a.waitForFunction(()=>!!window.sharedInvitation);const inviteText=await a.evaluate(()=>window.sharedInvitation);
+  await b.locator('.nav-item[data-nav="plan"]').click();await b.locator('[data-nx="account-join"]').click();await b.locator('[data-nx="account-apple"]').click();await b.locator('#shared-form').waitFor();await b.locator('[data-account-field="token"]').fill(inviteText);await b.locator('[data-account-field="name"]').fill('Друг');await b.locator('#shared-form button[type="submit"]').click();await b.getByRole('heading',{name:'Тренируемся вместе'}).waitFor();assert.equal(await b.locator('[data-nx="account-invite"]').count(),0);
+  await a.locator('[data-nx="account-shared"]').click();await a.locator('[data-nx="account-open-shared"]').waitFor();await a.locator('[data-nx="account-open-shared"]').click();await a.locator('[data-nx="account-new-shared-step"]').click();await a.locator('[data-account-field="title"]').fill('Сделать 20 отжиманий');await a.locator('[data-account-field="assigned_to"]').selectOption(people[1]);
+  await a.evaluate(()=>{window.vektorOnNativeSteps({status:'denied'});render()});assert.equal(await a.locator('[data-account-field="assigned_to"]').inputValue(),people[1]);
+  await a.locator('#shared-form button[type="submit"]').click();await a.locator('[data-nx="account-complete-shared"]').waitFor();assert(await a.locator('[data-nx="account-complete-shared"]').isDisabled());
+  await b.locator('[data-nx="account-refresh-shared"]').click();await b.locator('[data-nx="account-complete-shared"]').waitFor();await b.locator('[data-nx="account-complete-shared"]').click();await b.waitForFunction(()=>document.querySelector('[data-nx="account-complete-shared"]')?.classList.contains('checked'));
+  await a.locator('[data-nx="account-refresh-shared"]').click();await a.waitForFunction(()=>document.querySelector('[data-nx="account-complete-shared"]')?.classList.contains('checked'));assert((await a.locator('#view').innerText()).includes('1 / 1'));
+  await a.screenshot({path:'next-shots/shared-goal-ru.png',fullPage:true});
+  await c.locator('.nav-item[data-nav="plan"]').click();await c.locator('[data-nx="account-join"]').click();await c.locator('[data-nx="account-apple"]').click();await c.locator('#shared-form').waitFor();await c.locator('[data-account-field="token"]').fill(inviteText);await c.locator('[data-account-field="name"]').fill('Другой');await c.locator('#shared-form button[type="submit"]').click();await c.getByRole('alert').waitFor();assert((await c.getByRole('alert').innerText()).includes('новое'));assert.equal(await c.getByRole('heading',{name:'Тренируемся вместе'}).count(),0);
+  assert.deepEqual(sharedErrors,[]);for(const page of team)await page.close();
+  console.log('PASS: shared goal creation, Apple return path, native share, join from message, assignee permissions, shared completion, reused invitation and form focus');
 
   console.log('PASS: quantitative habits, multiple times, partial progress persistence, tasks, goals/steps, RU/EN and mobile overflow checks');
  }finally{await browser.close();server.close()}
