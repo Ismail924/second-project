@@ -228,6 +228,16 @@
     </section>
   </div>
 
+  <div class="modal" id="healthInfoModal" aria-hidden="true">
+    <div class="modal-backdrop"></div>
+    <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="healthInfoTitle" aria-describedby="healthInfoDescription">
+      <div class="modal-head"><h2 id="healthInfoTitle">Apple Health и HealthKit</h2><button class="close-btn" data-close="healthInfoModal" aria-label="Закрыть">×</button></div>
+      <p id="healthInfoDescription" class="subtle">С вашего разрешения RIVAYA читает количество шагов из Apple Health («Здоровье») через HealthKit и показывает вашу активность и прогресс.</p>
+      <p class="subtle">Подключение необязательно. Приложение только читает шаги, не изменяет данные «Здоровья» и не передаёт их разработчику или рекламным сервисам.</p>
+      <button class="primary full" data-close="healthInfoModal">Понятно</button>
+    </section>
+  </div>
+
   <div id="toast" class="toast" role="status"></div>
   <script>
     window.addEventListener('load',()=>{setTimeout(()=>document.getElementById('rivayaSplash')?.classList.add('hide'),650);setTimeout(()=>document.getElementById('rivayaSplash')?.remove(),1200)});

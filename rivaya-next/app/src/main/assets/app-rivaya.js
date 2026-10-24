@@ -178,8 +178,9 @@ function healthSource(){
   if(/Android/i.test(ua))return 'Health Connect';
   return 'Системная активность';
 }
-function healthKitDisclosure(){
+function healthKitDisclosure(compact=false){
   if(!window.RIVAYA_IOS)return '';
+  if(compact)return `<button class="health-source-summary" data-open="healthInfoModal" aria-haspopup="dialog" aria-controls="healthInfoModal" aria-label="Шаги из Apple Health: информация о HealthKit"><span>Шаги · Apple Health</span><span class="health-source-info" aria-hidden="true">ⓘ</span></button>`;
   return `<section class="card source-card" aria-label="Apple Health и HealthKit"><h3>Шаги из Apple Health («Здоровье»)</h3><p class="subtle">RIVAYA использует HealthKit, чтобы с вашего разрешения читать количество шагов из приложения «Здоровье» и показывать дневную активность и прогресс.</p><p class="subtle">Доступ необязателен. Мы только читаем шаги, не изменяем данные «Здоровья» и не передаём их разработчику или рекламным сервисам.</p><button class="ghost full" data-nav="activity">Подробнее о шагах и доступе</button></section>`;
 }
 function dateKey(d){const x=new Date(d);const y=x.getFullYear();const m=String(x.getMonth()+1).padStart(2,'0');const day=String(x.getDate()).padStart(2,'0');return `${y}-${m}-${day}`}
@@ -1300,7 +1301,7 @@ renderToday=function(){
     </section>
 
     <div class="rv-target-mini-grid">${goalHtml}${stepsHtml}</div>
-    ${healthKitDisclosure()}
+    ${healthKitDisclosure(true)}
 
     <section class="rv-target-week">
       <div class="rv-target-week-icon">${rvUiIcon('bars')}</div>

@@ -12,8 +12,24 @@ const server=http.createServer((req,res)=>{
   try{
     const page=await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:2,isMobile:true,hasTouch:true});
     const errors=[];page.on('pageerror',err=>errors.push(err.message));
+    const shots=process.env.RIVAYA_SHOTS||'paths-shots';fs.mkdirSync(shots,{recursive:true});
+    await page.addInitScript(()=>{window.RIVAYA_IOS=true});
     await page.goto('http://127.0.0.1:'+server.address().port);
     await page.locator('#finishOnboardingBtn').click();
+    assert.equal(await page.locator('#view .health-source-summary').count(),1);
+    assert.equal(await page.locator('#view .source-card[aria-label="Apple Health и HealthKit"]').count(),0);
+    await page.locator('.health-source-summary').click();
+    assert(await page.locator('#healthInfoModal.open').isVisible());
+    assert((await page.locator('#healthInfoDescription').innerText()).includes('HealthKit'));
+    await page.screenshot({path:path.join(shots,'health-info.png')});
+    await page.locator('#healthInfoModal [data-close]').last().click();
+    assert.equal(await page.locator('#healthInfoModal.open').count(),0);
+    await page.locator('#view [data-nav="activity"]').first().click();
+    assert.equal(await page.locator('#view .source-card[aria-label="Apple Health и HealthKit"]').count(),1);
+    await page.locator('.nav-item[data-nav="today"]').click();
+    await page.evaluate(()=>{window.RIVAYA_IOS=false;render()});
+    assert.equal(await page.locator('.health-source-summary').count(),0);
+    await page.evaluate(()=>{window.RIVAYA_IOS=true;render()});
     await page.locator('[data-rp-action="new-task"]').click();
     await page.locator('#rp-name').fill('Позвонить другу');
     await page.locator('#rp-form button[type="submit"]').click();
@@ -42,7 +58,6 @@ const server=http.createServer((req,res)=>{
     await page.locator('[data-rp-archive]').click();
     assert((await page.locator('.rp-hero').innerText()).includes('АРХИВ'));
     await page.locator('[data-rp-archive]').click();
-    const shots=process.env.RIVAYA_SHOTS||'paths-shots';fs.mkdirSync(shots,{recursive:true});
     for(const width of [320,390,768]){
       await page.setViewportSize({width,height:844});
       assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'horizontal overflow at '+width);
