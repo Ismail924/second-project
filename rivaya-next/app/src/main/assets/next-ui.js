@@ -89,7 +89,7 @@
       panel(t('Последние 7 дней','Last 7 days'),days(7).map(d=>`<div class="nx-between nx-history"><span>${date(d)}</span><b>${num(state.activity.dailySteps?.[d])}</b></div>`).join(''));
   }
   function profile(){
-    return head(t('Профиль','Profile'))+panel(esc(state.profile.name||t('Пользователь','User')),`<div class="nx-avatar">${rvAvatarMarkup(state.profile.name||'R')}</div><div class="nx-actions"><button class="nx-button" data-avatar-pick>${t('Фото профиля','Profile photo')}</button>${button(t('Изменить имя','Edit name'),'profile-name')}</div>`)+
+    return head(t('Профиль','Profile'))+(window.RivayaAccountUI?.profile?.()||'')+panel(esc(state.profile.name||t('Пользователь','User')),`<div class="nx-avatar">${rvAvatarMarkup(state.profile.name||'R')}</div><div class="nx-actions"><button class="nx-button" data-avatar-pick>${t('Фото профиля','Profile photo')}</button>${button(t('Изменить имя','Edit name'),'profile-name')}</div>`)+
       panel(t('Настройки','Settings'),`${button(t('Язык','Language')+' · '+({auto:t('Автоматически','Automatic'),ru:'Русский',en:'English'})[state.profile.language||'auto'],'language')}${button(t('Напоминания и тихие часы','Reminders and quiet hours'),'notifications')}${button('Apple Health / Health Connect','activity')}${button(t('Экспорт и восстановление','Export and restore'),'backup')}`)+
       panel(t('О приложении','About'),`<p>RIVAYA 4.1 · ${t('Твои дела. Твой прогресс.','Your tasks. Your progress.')}</p><p class="nx-muted">${t('Данные пока хранятся на этом устройстве.','Data currently stays on this device.')}</p><button class="nx-button" data-external="https://rivayaapp.com/privacy.html">${t('Конфиденциальность','Privacy')}</button><button class="nx-button" data-external="https://www.instagram.com/_isma_guder_/">@_isma_guder_</button>`);
   }
@@ -183,8 +183,9 @@
   render=function(){
     const routes={today,plan,habits:plan,goals:plan,progress:report,stats:report,calendar:report,profile,activity,habit:habitDetail,goal:goalDetail,backup};
     document.documentElement.lang=lang();
-    document.getElementById('view').innerHTML='<div class="nx-screen">'+(draft?editor():(routes[currentView]||today)())+'</div>';
-    const group=['habit','goal','habits','goals'].includes(currentView)?'plan':['activity','stats','calendar'].includes(currentView)?'progress':currentView==='backup'?'profile':currentView;
+    Object.assign(routes,window.RivayaNextUI?.extensions||{});
+    document.getElementById('view').innerHTML='<div class="nx-screen">'+(window.RivayaAccountUI?.isLocked?.()?window.RivayaAccountUI.lockedView():draft?editor():(routes[currentView]||today)())+'</div>';
+    const group=['habit','goal','habits','goals'].includes(currentView)?'plan':['activity','stats','calendar'].includes(currentView)?'progress':['backup','account','shared'].includes(currentView)?'profile':currentView;
     document.querySelectorAll('.nav-item').forEach(b=>{b.classList.toggle('active',b.dataset.nav===group);const small=b.querySelector('small');if(small)small.textContent=({today:t('Сегодня','Today'),plan:t('План','Plan'),progress:t('Прогресс','Progress'),profile:t('Профиль','Profile')})[b.dataset.nav]||''});
     const avatar=document.querySelector('.top-actions .avatar');if(avatar)avatar.innerHTML=rvAvatarMarkup(state.profile.name||'R');
   };
@@ -195,6 +196,8 @@
     const nav=e.target.closest('[data-nav]'),el=e.target.closest('[data-nx]');
     if(!el&&!nav)return;
     e.preventDefault();e.stopImmediatePropagation();
+    if(window.RivayaAccountUI?.isLocked?.()&&el?.dataset.nx!=='account-recover-workspace')return;
+    if(el?.dataset.nx.startsWith('account-')){window.RivayaAccountUI?.action(el.dataset.nx,el);return}
     if(nav&&!el){draft=null;currentView=nav.dataset.nav;render();window.scrollTo(0,0);if(currentView==='today'||currentView==='activity')requestNativeHealthRefresh();return}
     const a=el.dataset.nx,id=el.dataset.id;
     if(['today','plan','profile','activity','backup'].includes(a)){draft=null;currentView=a}

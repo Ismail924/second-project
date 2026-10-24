@@ -20,16 +20,24 @@ final class IntegratedSmokeTests: XCTestCase {
         let card = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Read a book")).firstMatch
         XCTAssertTrue(card.waitForExistence(timeout: 5)); card.tap()
         let step = app.buttons.matching(NSPredicate(format: "label IN %@", ["＋ Добавить этап", "＋ Add step"])).firstMatch
-        XCTAssertTrue(step.waitForExistence(timeout: 5)); step.tap()
+        reveal(step, in: app); step.tap()
         let stepName = app.textFields.firstMatch
         XCTAssertTrue(stepName.waitForExistence(timeout: 5)); stepName.tap(); stepName.typeText("Read chapter one")
         dismissKeyboard(app); save.tap()
-        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Read chapter one")).firstMatch.waitForExistence(timeout: 5))
+        reveal(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Read chapter one")).firstMatch, in: app)
         attach("Goal stages")
         app.terminate(); app.launch(); XCTAssertTrue(plan.waitForExistence(timeout: 10)); plan.tap()
         XCTAssertTrue(card.waitForExistence(timeout: 5)); card.tap()
-        XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Read chapter one")).firstMatch.waitForExistence(timeout: 5))
+        reveal(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Read chapter one")).firstMatch, in: app)
         attach("Persisted stages")
+    }
+    private func reveal(_ element: XCUIElement, in app: XCUIApplication) {
+        for _ in 0..<5 {
+            if element.exists && element.isHittable { return }
+            app.swipeUp()
+        }
+        XCTAssertTrue(element.exists, app.debugDescription)
+        XCTAssertTrue(element.isHittable)
     }
     private func dismissKeyboard(_ app: XCUIApplication) {
         if app.keyboards.firstMatch.exists {

@@ -58,5 +58,11 @@ async function fixture(){
   await wrong.account.init();
   assert(!wrong.storage.getItem(wrong.account.workspace('guest')),'restored private workspace never becomes guest');
   assert(JSON.parse(wrong.storage.getItem(wrong.account.workspace(A))).goals.some(g=>g.id==='private-a'));
+  const quota=await fixture();quota.set({...empty(),goals:[g('guest-safe','Preserved guest')]});
+  const set=quota.storage.setItem;let fail=true;
+  quota.storage.setItem=(key,value)=>{if(key===quota.account.workspace(A)&&fail){fail=false;throw Error('QuotaExceededError')}return set(key,value)};
+  await assert.rejects(()=>quota.account.login('a@example.test','password'),e=>e.code==='workspace_storage_failed');
+  assert.equal(quota.account.owner,null);assert.equal(quota.vault(),null);assert(!quota.account.locked);
+  assert.equal(quota.get().goals[0].name,'Preserved guest','failed workspace writes roll back without exposing the next account');
   console.log('PASS: explicit guest import, separate accounts, secure session callbacks, logout restoration, CAS sync, in-flight edits, conflict resolution, startup account isolation');
 })().catch(e=>{console.error(e);process.exitCode=1});

@@ -17,6 +17,28 @@
       const action=this.vaultQueue.catch(()=>{}).then(()=>{if(generation!==this.generation)throw new AccountError('cancelled');return session?this.vault.write(session):this.vault.clear()});
       this.vaultQueue=action;return action;
     }
+    async switchState(owner,session,target){
+      if(this.locked)throw new AccountError('workspace_busy');
+      this.core.validate(target);
+      const previous=clone(this.read()),oldOwner=this.owner,oldSession=this.session,tag=this.storage.getItem('rivaya-active-owner');
+      const key=this.workspace(owner||'guest'),oldTarget=this.storage.getItem(key);
+      this.locked=true;this.changed();
+      try{
+        await this.storeSession(session);
+        this.storage.setItem(key,JSON.stringify(target));
+        this.write(target);
+        if(owner)this.storage.setItem('rivaya-active-owner',owner);else this.storage.removeItem('rivaya-active-owner');
+        this.owner=owner;this.session=session;this.locked=false;this.changed();
+      }catch(error){
+        this.owner=oldOwner;this.session=oldSession;
+        try{
+          if(oldTarget===null)this.storage.removeItem(key);else this.storage.setItem(key,oldTarget);
+          if(tag===null)this.storage.removeItem('rivaya-active-owner');else this.storage.setItem('rivaya-active-owner',tag);
+          this.write(previous);await this.storeSession(oldSession);this.locked=false;
+        }catch{this.locked=true}
+        this.changed();throw new AccountError('workspace_storage_failed');
+      }
+    }
     workspace(owner){return 'rivaya-workspace:'+owner}
     async auth(path,body,method='POST',token){
       const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);
@@ -28,7 +50,7 @@
       }catch(e){if(e instanceof AccountError)throw e;throw new AccountError('network_unavailable')}finally{clearTimeout(timer)}
     }
     async credentials(){
-      if(!this.session||!this.owner)return null;
+      if(!this.session||!this.owner||this.locked)return null;
       if((this.session.expires_at||0)<Date.now()/1000+60){
         if(!this.refreshing)this.refreshing=this.refresh().finally(()=>{this.refreshing=null});
         await this.refreshing;
@@ -51,15 +73,11 @@
       if(saved?.user?.id&&saved.access_token&&saved.refresh_token){
         const previous=this.storage.getItem('rivaya-active-owner');
         if(previous!==saved.user.id)this.storage.setItem(this.workspace(previous||'guest'),JSON.stringify(this.read()));
-        this.owner=saved.user.id;this.session=saved;
-        const raw=this.storage.getItem(this.workspace(this.owner));
-        this.write(raw?JSON.parse(raw):this.empty());
-        this.storage.setItem('rivaya-active-owner',this.owner);
-        this.changed();
+        const raw=this.storage.getItem(this.workspace(saved.user.id));
+        await this.switchState(saved.user.id,saved,previous===saved.user.id?clone(this.read()):raw?JSON.parse(raw):this.empty());
       }else if(this.storage.getItem('rivaya-active-owner')){
         this.storage.setItem(this.workspace(this.storage.getItem('rivaya-active-owner')),JSON.stringify(this.read()));
-        this.storage.removeItem('rivaya-active-owner');
-        const raw=this.storage.getItem(this.workspace('guest'));this.write(raw?JSON.parse(raw):this.empty());this.changed();
+        const raw=this.storage.getItem(this.workspace('guest'));await this.switchState(null,null,raw?JSON.parse(raw):this.empty());
       }
     }
     async login(email,password,{importGuest=false}={}){
@@ -76,10 +94,9 @@
       const raw=this.storage.getItem(this.workspace(user.id));
       const target=raw?JSON.parse(raw):(importGuest?guest:this.empty());
       this.core.validate(target);
-      await this.storeSession(session,generation);
+      await this.switchState(user.id,session,target);
       if(generation!==this.generation)throw new AccountError('cancelled');
-      this.transport.cancel();this.generation++;this.owner=user.id;this.session=session;
-      this.storage.setItem('rivaya-active-owner',user.id);this.write(target);this.changed();
+      this.transport.cancel();this.generation++;
       return await this.sync();
       }finally{this.authenticating=false}
     }
@@ -93,12 +110,12 @@
       await this.auth('logout?scope=local',undefined,'POST',recovery.access_token);
     }
     capture(){
-      if(!this.owner)return;
+      if(!this.owner||this.locked)return;
       this.journal.capture(this.owner,this.read());this.stash();
       clearTimeout(this.debounce);this.debounce=setTimeout(()=>this.sync().catch(()=>{}),1200);
     }
     async sync(){
-      if(!this.owner||this.pending)return;
+      if(!this.owner||this.pending||this.locked)return;
       if(this.busy){this.again=true;return}
       this.busy=true;this.lastError=null;this.changed();
       const owner=this.owner,generation=this.generation;
@@ -160,9 +177,7 @@
     async logout(){
       const old=this.session;
       this.stash();this.transport.cancel();this.generation++;clearTimeout(this.debounce);
-      await this.storeSession(null,this.generation);
-      this.owner=null;this.session=null;this.pending=null;this.storage.removeItem('rivaya-active-owner');
-      const guest=this.storage.getItem(this.workspace('guest'));this.write(guest?JSON.parse(guest):this.empty());this.changed();
+      const guest=this.storage.getItem(this.workspace('guest'));await this.switchState(null,null,guest?JSON.parse(guest):this.empty());this.pending=null;
       if(old?.access_token)this.auth('logout?scope=local',undefined,'POST',old.access_token).catch(()=>{});
     }
     async deleteAccount(){

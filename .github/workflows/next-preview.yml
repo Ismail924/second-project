@@ -14,6 +14,11 @@ jobs:
         with:
           node-version: '22'
       - run: node rivaya-next/tests/state-check.cjs && node rivaya-next/tests/next-state-check.cjs && node rivaya-next/tests/accounts-check.cjs && node rivaya-next/tests/sync-check.cjs && node rivaya-next/tests/sync-transport-check.cjs
+      - run: node rivaya-next/tests/backend-fetch-check.cjs
+      - run: npm install --prefix "$RUNNER_TEMP/rivaya-sql" @electric-sql/pglite@0.5.11
+      - run: node rivaya-next/tests/shared-sql-check.cjs
+        env:
+          NODE_PATH: ${{ runner.temp }}/rivaya-sql/node_modules
       - run: |
           npm install --prefix "$RUNNER_TEMP/rivaya-web" playwright@1.62.1
           node "$RUNNER_TEMP/rivaya-web/node_modules/playwright/cli.js" install --with-deps chromium

@@ -35,6 +35,8 @@ final class RivayaController: UIViewController, WKScriptMessageHandler, WKNaviga
         let bridge = """
         window.RIVAYA_IOS = true;
         window.VektorNative = {
+          shareText: text => window.webkit.messageHandlers.rivaya.postMessage({action:'shareText',text}),
+          backendRequest: text => window.webkit.messageHandlers.rivaya.postMessage({action:'backendRequest',text}),
           secureSession: text => window.webkit.messageHandlers.rivaya.postMessage({action:'secureSession',text}),
           clearNativeData: () => window.webkit.messageHandlers.rivaya.postMessage({action:'clearNativeData'}),
           pickAvatar: () => window.webkit.messageHandlers.rivaya.postMessage({action:'pickAvatar'}),
@@ -87,6 +89,15 @@ final class RivayaController: UIViewController, WKScriptMessageHandler, WKNaviga
         guard message.frameInfo.isMainFrame, message.frameInfo.request.url?.isFileURL == true,
               let body = message.body as? [String: Any], let action = body["action"] as? String else { return }
         switch action {
+        case "shareText":
+            if let text=body["text"] as? String, text.count<=4000, presentedViewController == nil {
+                let controller=UIActivityViewController(activityItems:[text],applicationActivities:nil)
+                controller.popoverPresentationController?.sourceView=view
+                controller.popoverPresentationController?.sourceRect=CGRect(x:view.bounds.midX,y:view.bounds.midY,width:1,height:1)
+                present(controller,animated:true)
+            }
+        case "backendRequest":
+            if let text = body["text"] as? String { BackendTransport.request(text) { [weak self] result in self?.callback("rivayaOnBackendResponse",result) } }
         case "secureSession":
             if let text = body["text"] as? String { callback("rivayaOnSecureSession", SessionVault.request(text)) }
         case "debug":
