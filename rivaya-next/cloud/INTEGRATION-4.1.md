@@ -116,7 +116,14 @@ APPLE_SIGN_IN_TEAM_ID=M2329MH9ZX, APPLE_SIGN_IN_KEY_ID,
 APPLE_SIGN_IN_PRIVATE_KEY (a dedicated SIWA PKCS#8 private key).
 Do not expose them in this repository, the app or chat.
 
-Deployment of the Apple-aware deletion handler was blocked by automatic approval
-review: replacing the live destructive endpoint needs specific user confirmation.
-The running version 1 endpoint has NOT changed. Prepared version is source-only.
-Do not work around this block through the CLI, SQL or another deployment route.
+Deployment was initially blocked by automatic approval review. The owner then
+explicitly approved replacing this function after confirming that deployment itself
+does not delete any accounts. Deployed delete-account version 2 on October 24,
+2026; status ACTIVE, bundle SHA f8da80d371ce7eb484b1dc064f429b34890428c37446404ae9efe8b187c26d72.
+The two source files are delete-account.ts and apple-revoke.mjs. Platform JWT
+checking remains at its prior false setting; the handler independently verifies
+Auth.getUser and the live database session before any action. Missing/invalid
+bearers return 401. Read-only database counts remain 1 account, 0 documents,
+0 shared goals. No real account deletion was performed. Dedicated SIWA server
+key configuration and real authenticated Apple revocation/deletion are still
+unverified; the app backend/Apple gates remain disabled.
