@@ -1,5 +1,10 @@
 # Account and sync foundation — not a live service
 
+> Historical foundation notes below. For the current 4.1 implementation,
+> verification results and remaining release gates, see `INTEGRATION-4.1.md`.
+> Account UI, secure vault and transport now exist behind a disabled gate;
+> statements below saying they are not implemented refer to the old foundation.
+
 The existing `rivaya-public-v1` storage remains authoritative. `sync-core.js`
 adds an atomic guest journal, a versioned allowlist, per-account namespaces,
 three-way field/entity merge and explicit delete/edit conflicts. No network
