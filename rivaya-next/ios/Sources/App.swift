@@ -35,6 +35,7 @@ final class RivayaController: UIViewController, WKScriptMessageHandler, WKNaviga
         let bridge = """
         window.RIVAYA_IOS = true;
         window.VektorNative = {
+          secureSession: text => window.webkit.messageHandlers.rivaya.postMessage({action:'secureSession',text}),
           clearNativeData: () => window.webkit.messageHandlers.rivaya.postMessage({action:'clearNativeData'}),
           pickAvatar: () => window.webkit.messageHandlers.rivaya.postMessage({action:'pickAvatar'}),
           exportBackupFile: text => window.webkit.messageHandlers.rivaya.postMessage({action:'exportBackupFile',text}),
@@ -86,6 +87,8 @@ final class RivayaController: UIViewController, WKScriptMessageHandler, WKNaviga
         guard message.frameInfo.isMainFrame, message.frameInfo.request.url?.isFileURL == true,
               let body = message.body as? [String: Any], let action = body["action"] as? String else { return }
         switch action {
+        case "secureSession":
+            if let text = body["text"] as? String { callback("rivayaOnSecureSession", SessionVault.request(text)) }
         case "debug":
             #if DEBUG
             if let text = body["text"] as? String { NSLog("RIVAYA diagnostic: %@", text) }

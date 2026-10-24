@@ -610,6 +610,7 @@ function restoreBackupText(text){
   if(!incoming.habits.every(validId)||!incoming.goals.every(g=>validId(g)&&Array.isArray(g.steps)&&g.steps.every(validId)))throw new Error('Повреждены записи');
   if(new Set(incoming.habits.map(h=>h.id)).size!==incoming.habits.length||new Set(incoming.goals.map(g=>g.id)).size!==incoming.goals.length)throw new Error('Повторяющиеся записи');
   if(!Object.values(incoming.checks).every(v=>typeof v==='boolean'))throw new Error('Повреждена история');
+  window.RivayaNextCore?.validation(incoming);
   const previous=localStorage.getItem(STORAGE_KEY),previousState=state;
   try{
     // Retain a recovery point before replacing live data.

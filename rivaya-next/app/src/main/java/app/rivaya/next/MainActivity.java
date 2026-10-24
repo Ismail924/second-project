@@ -213,11 +213,16 @@ public class MainActivity extends androidx.activity.ComponentActivity {
 
     @Override
     public void onBackPressed() {
-        if (webView != null && webView.canGoBack()) webView.goBack();
+        if(webView!=null)webView.evaluateJavascript("window.RivayaNextUI ? window.RivayaNextUI.back() : false",value->{if(!"true".equals(value))finish();});
         else super.onBackPressed();
     }
 
     public final class NativeBridge {
+        @JavascriptInterface
+        public void secureSession(String text) {
+            String result=SessionVault.request(MainActivity.this,text);
+            if(webView!=null)webView.post(()->webView.evaluateJavascript("window.rivayaOnSecureSession && window.rivayaOnSecureSession("+JSONObject.quote(result)+")",null));
+        }
         @JavascriptInterface
         public void refreshSteps() {
             runOnUiThread(() -> { if (healthSteps != null) healthSteps.refresh(); });
