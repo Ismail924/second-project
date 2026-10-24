@@ -566,3 +566,6 @@ html,body{
 button{touch-action:manipulation}
 .goal-submit>*,.goal-submit-text>*{pointer-events:none}
 .rivaya-splash{pointer-events:none}
+.health-source-summary{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:44px;padding:8px 4px;border:0;background:transparent;color:#a9bdd7;font:inherit;font-size:13px;text-align:left;cursor:pointer}
+.health-source-info{display:grid;place-items:center;min-width:28px;min-height:28px;color:#77d6f4;font-size:20px}
+.health-source-summary:focus-visible{outline:2px solid #77d6f4;outline-offset:3px;border-radius:10px}
