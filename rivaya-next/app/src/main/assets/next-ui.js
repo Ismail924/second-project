@@ -73,13 +73,35 @@
       (g.type!=='money'?panel(t('Этапы','Steps'),g.steps.map(s=>`<div class="nx-row"><button class="nx-check ${s.done?'checked':''}" data-nx="step" data-id="${g.id}" data-step="${s.id}" aria-label="${t('Отметить этап','Toggle step')}" aria-pressed="${s.done}">${s.done?'✓':''}</button><button class="nx-row-copy" data-nx="edit-step" data-id="${g.id}" data-step="${s.id}"><b>${esc(s.name)}</b><small>${date(s.deadline||'')}</small></button></div>`).join('')+button('＋ '+t('Добавить этап','Add step'),'new-step',attr(g.id))):'')+
       button(t('Изменить цель','Edit goal'),'edit-goal',attr(g.id));
   }
+  function ring(value,label,detail='',tone='cyan',unknown=false){
+    const p=Math.max(0,Math.min(100,Number(value)||0));
+    return `<div class="nx-ring nx-ring-${tone}" style="--nx-p:${p}" role="img" aria-label="${esc(label)}: ${unknown?'—':p+'%'}"><svg viewBox="0 0 120 120" aria-hidden="true"><circle class="nx-ring-track" cx="60" cy="60" r="51"/><circle class="nx-ring-value" cx="60" cy="60" r="51" pathLength="100" stroke-dasharray="${p} 100"/></svg><div class="nx-ring-copy"><strong>${unknown?'—':p+'<small>%</small>'}</strong>${detail?`<span>${detail}</span>`:''}</div></div>`;
+  }
   function report(){
-    const summary=C.weekSummary(state,days(7)),stats=state.habits.map(h=>({h,...habitStats(h,period)}));
-    const target=stats.reduce((a,x)=>a+x.target,0),total=stats.reduce((a,x)=>a+x.done,0);
-    return head(t('Прогресс','Progress'))+`<div class="nx-actions">${[7,30,365].map(n=>button(({7:t('Неделя','Week'),30:t('Месяц','Month'),365:t('Год','Year')})[n],'period',`data-period="${n}" aria-pressed="${period===n}"`)).join('')}</div>`+
-      panel(t('Привычки','Habits'),`<div class="nx-number">${target?Math.min(100,Math.round(total/target*100)):0}<span>%</span></div><p class="nx-muted">${total} / ${target}</p>${stats.map(x=>`<div class="nx-history"><div class="nx-between"><span>${esc(x.h.name)}</span><b>${x.p}%</b></div>${progress(x.p)}</div>`).join('')}`)+
-      panel(t('Итоги недели','This week'),`<div class="nx-between nx-history"><span>${t('Выполнено дел','Tasks completed')}</span><b>${summary.tasks}</b></div><div class="nx-between nx-history"><span>${t('Завершено целей','Goals completed')}</span><b>${summary.goals}</b></div><div class="nx-between nx-history"><span>${t('Отметок привычек','Habit completions')}</span><b>${summary.checks}</b></div>`)+
-      panel(t('Активность по дням','Daily activity'),days(7).map(d=>`<div class="nx-between nx-history"><span>${date(d)}</span><b>${Object.entries(state.checks).filter(([k,v])=>v&&k.startsWith(d+'_')).length} ✓</b></div>`).join(''));
+    const range=days(period),stats=state.habits.map(h=>({h,...habitStats(h,period)}));
+    const target=stats.reduce((a,x)=>a+x.target,0),total=stats.reduce((a,x)=>a+x.done,0),habitPercent=target?Math.min(100,Math.round(total/target*100)):0;
+    const goals=state.goals.filter(g=>g.type!=='task'),goalPercent=goals.length?Math.round(goals.reduce((a,g)=>a+goalPct(g),0)/goals.length):0;
+    const stages=goals.filter(g=>g.type!=='money').flatMap(g=>g.steps),stageDone=stages.filter(s=>s.done).length;
+    const health=activityConnected(),source=window.RIVAYA_IOS?'Apple Health':'Health Connect';
+    const completedTasks=state.goals.filter(g=>g.type==='task'&&g.completedAt&&range.includes(g.completedAt.slice(0,10))).length;
+    const rangeLabel=({7:t('За неделю','This week'),30:t('За месяц','This month'),365:t('За год','This year')})[period];
+    const habitRows=stats.map(x=>{
+      const e=C.entry(x.h,todayKey()),credit=C.dayCredit(state,x.h,todayKey()),scheduled=habitScheduledOnDate(x.h,new Date());
+      const todayLabel=C.numeric(x.h)?`${t('Сегодня: ','Today: ')}${num(e.value)} / ${num(e.target)} ${esc(e.unit)} · ${Math.round(credit*100)}%`:scheduled?(credit?t('Выполнено сегодня','Done today'):t('Сегодня ещё впереди','Still ahead today')):t('Сегодня без плана','Not planned today');
+      return `<button class="nx-report-habit" data-nx="habit" ${attr(x.h.id)}><div class="nx-between"><b>${esc(x.h.name)}</b><strong>${x.p}%</strong></div><small>${rangeLabel} · ${todayLabel}</small>${progress(x.p)}</button>`;
+    }).join('');
+    const chartDays=days(7),rhythm=chartDays.map(d=>{
+      const planned=state.habits.filter(h=>habitScheduledOnDate(h,new Date(d+'T12:00:00'))),value=planned.length?Math.round(planned.reduce((a,h)=>a+C.dayCredit(state,h,d),0)/planned.length*100):0;
+      return `<div class="nx-rhythm-day" aria-label="${date(d)}: ${planned.length?value+'%':t('Нет плана','No plan')}"><span>${planned.length?value+'%':'—'}</span><div class="nx-rhythm-track"><i style="height:${value}%"></i></div><small>${new Intl.DateTimeFormat(lang()==='en'?'en-GB':'ru-RU',{weekday:'short'}).format(new Date(d+'T12:00:00'))}</small></div>`;
+    }).join('');
+    return head(t('Прогресс','Progress'),t('Каждое действие имеет значение','Every action counts'))+
+      `<div class="nx-actions nx-periods">${[7,30,365].map(n=>button(({7:t('Неделя','Week'),30:t('Месяц','Month'),365:t('Год','Year')})[n],'period',`data-period="${n}" aria-pressed="${period===n}"`)).join('')}</div>`+
+      `<section class="nx-overview" aria-label="${t('Обзор прогресса','Progress overview')}"><div class="nx-habit-hero"><div><span class="nx-eyebrow">${rangeLabel}</span><h2>${t('Твой ритм','Your rhythm')}</h2><p>${t('Привычки, включая частичный результат','Habits, including partial progress')}</p><span class="nx-pill">${t('Сегодня','Today')} · ${scheduledHabitsToday().filter(h=>C.dayCredit(state,h,todayKey())>0).length} / ${scheduledHabitsToday().length} ${t('в движении','in motion')}</span></div>${ring(habitPercent,t('Привычки','Habits'),t('привычки','habits'))}</div><div class="nx-mini-grid"><button class="nx-summary-card" data-nx="report-goals">${ring(goalPercent,t('Цели','Goals'),'','violet')}<b>${t('Цели','Goals')}</b><small>${stageDone} / ${stages.length} ${t('этапов','steps')}</small><em>${t('Текущий результат','Current progress')}</em></button><button class="nx-summary-card" data-nav="activity">${ring(health?stepPct():0,t('Шаги сегодня','Steps today'),'','green',!health)}<b>${health?num(state.activity.steps):t('Шаги','Steps')}</b><small>${health?t('из ','of ')+num(state.activity.stepGoal):t('Разрешить доступ','Allow access')}</small><em>${source} · ${t('сегодня','today')}</em></button></div></section>`+
+      panel(t('Мои привычки','My habits'),habitRows||empty(t('Добавь первую привычку в Плане.','Add your first habit in Plan.')))+
+      `<section class="nx-panel" id="nx-report-goals"><div class="nx-between"><h2>${t('Движение к целям','Moving towards goals')}</h2><span class="nx-pill">${goalPercent}%</span></div><p class="nx-muted nx-section-note">${t('Текущий результат · каждый выполненный этап учитывается','Current progress · every completed step counts')}</p>${goals.map(g=>`<button class="nx-goal" data-nx="goal" ${attr(g.id)}><div class="nx-between"><b>${esc(g.name)}</b><strong>${goalPct(g)}%</strong></div>${progress(goalPct(g))}<small>${g.type==='money'?`${num(g.currentAmount)} / ${num(g.targetAmount)} ₽`:`${g.steps.filter(s=>s.done).length} / ${g.steps.length} ${t('этапов выполнено','steps completed')}`}</small></button>`).join('')||empty(t('Здесь появятся твои цели и их этапы.','Your goals and steps will appear here.'))}</section>`+
+      panel(t('Шаги и движение','Steps and movement'),`<div class="nx-between"><div><span class="nx-eyebrow">${source} · ${t('сегодня','today')}</span><div class="nx-steps-number">${health?num(state.activity.steps):'—'}<small> / ${num(state.activity.stepGoal)}</small></div></div><span class="nx-step-symbol" aria-hidden="true">↗</span></div>${progress(health?stepPct():0)}${!health?`<p class="nx-muted">${t('Доступ к шагам не включён. Разреши чтение, чтобы видеть движение и проценты здесь.','Step access is not enabled. Allow reading to see steps and percentages here.')}</p>${button(t('Разрешить доступ','Allow access'),'health-access','',true)}`:`<p class="nx-muted">${t('Шаги обновляются из системного приложения здоровья.','Steps update from your device health app.')}</p>`}<div class="nx-actions">${button(t('Подробнее','Details'),'activity')}${button(t('Обновить','Refresh'),'health-refresh')}</div>`)+
+      panel(t('Ритм за 7 дней','Your last 7 days'),`<p class="nx-muted nx-section-note">${t('Выполнение привычек с учётом количества','Habit progress includes quantities')}</p><div class="nx-rhythm">${rhythm}</div>`)+
+      `<div class="nx-period-footer"><span>${rangeLabel}</span><b>${completedTasks} ${t('дел выполнено','tasks completed')}</b></div>`;
   }
   function activity(){
     const source=window.RIVAYA_IOS?'Apple Health / HealthKit':'Health Connect';
@@ -198,7 +220,7 @@
     e.preventDefault();e.stopImmediatePropagation();
     if(window.RivayaAccountUI?.isLocked?.()&&el?.dataset.nx!=='account-recover-workspace')return;
     if(el?.dataset.nx.startsWith('account-')){window.RivayaAccountUI?.action(el.dataset.nx,el);return}
-    if(nav&&!el){draft=null;currentView=nav.dataset.nav;render();window.scrollTo(0,0);if(currentView==='today'||currentView==='activity')requestNativeHealthRefresh();return}
+    if(nav&&!el){draft=null;currentView=nav.dataset.nav;render();window.scrollTo(0,0);if(['today','activity','progress'].includes(currentView))requestNativeHealthRefresh();return}
     const a=el.dataset.nx,id=el.dataset.id;
     if(['today','plan','profile','activity','backup'].includes(a)){draft=null;currentView=a}
     else if(a==='habit'||a==='goal'){selected=id;draft=null;currentView=a}
@@ -221,7 +243,8 @@
       else if(draft.kind==='step'){const g=state.goals.find(g=>g.id===draft.owner);g.steps=g.steps.filter(s=>s.id!==draft.id);syncGoalStatus(g)}
       else state.goals=state.goals.filter(g=>g.id!==draft.id);
       draft=null;currentView='plan';save();
-    }else if(a==='health-info'){currentView='activity';requestNativeHealthRefresh()}
+    }else if(a==='report-goals'){document.getElementById('nx-report-goals')?.scrollIntoView({behavior:'smooth',block:'start'});return}
+    else if(a==='health-info'){currentView='activity';requestNativeHealthRefresh()}
     else if(a==='health-refresh')requestNativeHealthRefresh();
     else if(a==='health-access'){if(!requestNativeHealthAccess())toast(t('Доступно в мобильном приложении','Available in the mobile app'))}
     else if(a==='health-settings'){if(!openNativeHealthSettings())toast(t('Доступно в мобильном приложении','Available in the mobile app'))}

@@ -27,6 +27,35 @@ const server=http.createServer((req,res)=>{const file=path.resolve(root,'.'+(req
   assert.equal(await p.locator('html').getAttribute('lang'),'en');
   for(const v of ['today','plan','progress','profile']){await p.locator('.nav-item[data-nav="'+v+'"]').click();for(const width of [320,390,768]){await p.setViewportSize({width,height:844});assert(await p.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),v+' overflow '+width)}await p.setViewportSize({width:390,height:844});await p.evaluate(()=>scrollTo(0,0));await p.screenshot({path:'next-shots/'+v+'-en.png',fullPage:true})}
   await p.reload();assert.equal(await p.locator('html').getAttribute('lang'),'en');assert.deepEqual(errors,[]);
+  // Regression + review screenshots from the real interface, using isolated sample data.
+  const review=await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:2,isMobile:true,hasTouch:true});
+  await review.addInitScript(()=>{window.RIVAYA_IOS=true});
+  await review.goto('http://127.0.0.1:'+server.address().port);await review.locator('#finishOnboardingBtn').click();
+  await review.evaluate(()=>{
+   const day=todayKey();state.profile.language='ru';state.profile.name='Исмаил';state.habits=[
+    {id:'read',name:'Читать 30 минут',freq:'Каждый день',createdAt:day},
+    {id:'project',name:'Заняться проектом',freq:'Каждый день',createdAt:day},
+    {id:'quantity',name:'Ничего',freq:'Каждый день',createdAt:day,tracking:'count',target:100,unit:'раз',counts:{[day]:{value:44,target:100,unit:'раз'}}}
+   ];state.checks={[day+'_read']:true};
+   state.goals=[{id:'review-goal',name:'Запустить свой проект',type:'regular',status:'active',createdAt:day,steps:['Идея и план','Первый прототип','Проверка на телефоне','Последние улучшения','Запуск'].map((name,i)=>({id:'s'+i,name,done:i<2}))}];
+   state.activity={...state.activity,access:'granted',day,steps:6280,stepGoal:10000,dailySteps:{[day]:6280}};save();currentView='progress';render();
+  });
+  assert.equal(await review.locator('.nx-report-habit').filter({hasText:'Ничего'}).locator('strong').innerText(),'44%');
+  assert((await review.locator('#nx-report-goals').innerText()).includes('2 / 5'));
+  assert((await review.locator('.nx-summary-card').last().innerText()).includes('6'));
+  for(const width of [320,390,430,768]){await review.setViewportSize({width,height:844});assert(await review.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'progress width '+width)}
+  await review.setViewportSize({width:390,height:844});await review.screenshot({path:'next-shots/progress-redesign-ru.png',fullPage:true});
+  await review.screenshot({path:'next-shots/progress-overview-ru.png'});
+  for(const v of ['today','plan','progress','profile']){
+   await review.locator('.nav-item[data-nav="'+v+'"]').click();await review.evaluate(()=>scrollTo(0,document.documentElement.scrollHeight));
+   const geometry=await review.evaluate(()=>{const screen=document.querySelector('.nx-screen').getBoundingClientRect(),nav=document.querySelector('.rv-bottom-nav').getBoundingClientRect();return{gap:nav.top-screen.bottom,overflow:document.documentElement.scrollWidth-innerWidth}});
+   assert(geometry.gap>=8&&geometry.gap<=30,v+' bottom gap '+JSON.stringify(geometry));assert(geometry.overflow<=1);
+   await review.screenshot({path:'next-shots/'+v+'-bottom-ru.png'});
+  }
+  await review.locator('.nav-item[data-nav="plan"]').click();await review.evaluate(()=>scrollTo(0,0));await review.screenshot({path:'next-shots/plan-redesign-ru.png',fullPage:true});
+  await review.evaluate(()=>{state.activity.access='not_requested';currentView='progress';render()});
+  assert.equal(await review.locator('[data-nx="health-access"]').count(),1);assert.equal(await review.locator('.nx-summary-card').last().locator('.nx-ring-copy strong').innerText(),'—');
+  await review.close();
   // Exercise the gated account UI with synthetic sessions; no real email or backend.
   const account=await browser.newPage({viewport:{width:390,height:844}}),accountErrors=[];
   account.on('pageerror',e=>accountErrors.push(e.message));

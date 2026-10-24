@@ -261,7 +261,7 @@ function habitStats(h,days){
       const k=weekKey(d);
       const item=weeks.get(k)||{days:0,done:0};
       item.days++;
-      if(doneOnDate(h.id,d))item.done++;
+      item.done+=window.RivayaNextCore?.dayCredit(state,h,dateKey(d))??(doneOnDate(h.id,d)?1:0);
       weeks.set(k,item);
     });
     for(const item of weeks.values()){
@@ -273,7 +273,7 @@ function habitStats(h,days){
     eachDate(start,end,d=>{
       if(!habitScheduledOnDate(h,d))return;
       target++;
-      if(doneOnDate(h.id,d))done++;
+      done+=window.RivayaNextCore?.dayCredit(state,h,dateKey(d))??(doneOnDate(h.id,d)?1:0);
     });
   }
   return {p:target?Math.min(100,Math.round(done/target*100)):0,done,target};

@@ -29,3 +29,19 @@ assert(run('collectSmartReminderItems().some(x=>x.startDate==="2026-12-01"&&x.en
 run("window.RivayaNextUI.openEditor('language');window.RivayaNextUI.getDraft().language='en';window.RivayaNextUI.commit()");assert.equal(run('window.RivayaNextUI.lang()'),'en');
 assert.equal(ctx.document.documentElement.lang,'en');
 console.log('PASS: legacy migration, numeric targets/history, multiple reminders, daily suppression, next-day schedule, task dates, atomic restore, restart and language persistence');
+// Report regression: partial quantities, historical targets and unfinished goal stages.
+run("state.habits=[{id:'partial',name:'Ничего',tracking:'count',target:100,unit:'раз',createdAt:todayKey(),freq:'Каждый день'}];state.checks={};state.activity.access='not_requested';state.profile.language='ru';state.goals=[{id:'g',name:'Большая цель',type:'regular',status:'active',steps:[{id:'a',done:true},{id:'b',done:true},{id:'c',done:false},{id:'d',done:false},{id:'e',done:false}]}];window.RivayaNextCore.changeCount(state,'partial',todayKey(),44)");
+assert.equal(run('habitStats(state.habits[0],7).p'),44);
+assert.equal(run('doneToday("partial")'),false,'partial result is not a full completion');
+assert.equal(run('goalPct(state.goals[0])'),40);
+run("currentView='progress';render()");
+assert(els.view.innerHTML.includes('44 / 100'));
+assert(els.view.innerHTML.includes('2 / 5'));
+assert(els.view.innerHTML.includes('Apple Health'));
+assert(els.view.innerHTML.includes('Разрешить доступ'),'missing access remains visible');
+run("state.habits[0].target=200");assert.equal(run('habitStats(state.habits[0],7).p'),44,'stored target determines historical credit');
+run("window.RivayaNextCore.changeCount(state,'partial',todayKey(),140)");assert.equal(run('habitStats(state.habits[0],7).p'),100,'overcompletion is capped');
+run("state.habits[0].freq='3 раза в неделю';window.RivayaNextCore.changeCount(state,'partial',todayKey(),44)");assert.equal(run('habitStats(state.habits[0],7).p'),44,'weekly schedules retain partial credit');
+run("state.activity.access='granted';state.activity.day=todayKey();state.activity.steps=6280;state.activity.stepGoal=10000;render()");
+assert(els.view.innerHTML.includes('63%'),'native steps included in overview');
+console.log('PASS: report partial quantities, unfinished stages, stored targets, weekly schedules and native step rings');

@@ -10,6 +10,12 @@
     return stored?{...stored}:{value:0,target:Number(h.target)||1,unit:h.unit||''};
   }
   function numeric(h){return h.tracking==='count'}
+  function dayCredit(state,h,day){
+    if(!numeric(h))return state.checks?.[day+'_'+h.id]?1:0;
+    const e=entry(h,day);
+    if(!h.counts?.[day]&&state.checks?.[day+'_'+h.id])return 1;
+    return Math.max(0,Math.min(1,(Number(e.value)||0)/Math.max(0.000001,Number(e.target)||1)));
+  }
   function changeCount(state,id,day,value){
     const h=state.habits.find(h=>h.id===id);
     if(!h||!numeric(h)||!datePattern.test(day)||!finite(value)||value<0||value>1000000000)throw Error('invalid_count');
@@ -48,7 +54,7 @@
     const checks=Object.entries(state.checks||{}).filter(([k,v])=>v&&days.includes(k.slice(0,10))).length;
     return {tasks,goals,checks};
   }
-  const api={times,entry,numeric,changeCount,validation,skipDates,reminders,weekSummary};
+  const api={times,entry,numeric,dayCredit,changeCount,validation,skipDates,reminders,weekSummary};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;
   root.RivayaNextCore=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
