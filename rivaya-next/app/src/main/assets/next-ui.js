@@ -30,20 +30,37 @@
     const next=g.steps.find(s=>!s.done);
     return `<button class="nx-goal" data-nx="goal" ${attr(g.id)}><div class="nx-between"><b>${esc(g.name)}</b><span>${goalPct(g)}%</span></div>${progress(goalPct(g))}<small>${g.type==='money'?`${num(g.currentAmount)} / ${num(g.targetAmount)} ₽`:next?esc(next.name):g.steps.length?t('Все этапы завершены','All steps completed'):t('Добавь первый этап','Add your first step')}${g.deadline?' · '+date(g.deadline):''}</small></button>`;
   }
+  const homeKeys=['summary','tasks','habits','next','goals','steps','shared'];
+  const homeLabels=()=>({summary:t('Прогресс дня','Daily progress'),tasks:t('Мои дела','My tasks'),habits:t('Привычки','Habits'),next:t('Следующий этап','Next goal step'),goals:t('Цели','Goals'),steps:t('Шаги','Steps'),shared:t('Совместные цели','Shared goals')});
+  function homePrefs(){
+    const raw=state.profile.homeLayout||{mode:'expanded'},clean=list=>[...new Set((Array.isArray(list)?list:[]).filter(k=>homeKeys.includes(k)))];
+    return {mode:raw.mode==='simple'?'simple':'expanded',simple:Array.isArray(raw.simple)?clean(raw.simple):['habits'],expanded:Array.isArray(raw.expanded)?clean(raw.expanded):[...homeKeys]};
+  }
+  function saveHome(p){state.profile.homeLayout=p;save()}
+  function homeSwitch(){const p=homePrefs();return `<div class="nx-home-switch" aria-label="${t('Режим главного экрана','Home screen mode')}">${['simple','expanded'].map(m=>button(m==='simple'?t('Простой','Simple'):t('Расширенный','Expanded'),'home-mode',`data-mode="${m}" aria-pressed="${p.mode===m}"`)).join('')}</div>`}
+  function homeSettings(){
+    const p=homePrefs(),visible=p[p.mode],order=visible.concat(homeKeys.filter(k=>!visible.includes(k))),labels=homeLabels();
+    return button('‹ '+t('Сегодня','Today'),'today')+head(t('Настроить экран','Customize home'),t('Выбери блоки для каждого режима. Данные сохраняются, даже если блок скрыт.','Choose blocks for each mode. Hiding a block keeps all its data.'))+homeSwitch()+
+      `<section class="nx-panel nx-home-options">${order.map(k=>{const on=visible.includes(k),i=visible.indexOf(k);return `<div class="nx-home-option"><button class="nx-home-toggle" data-nx="home-toggle" data-block="${k}" role="switch" aria-checked="${on}"><span>${labels[k]}</span><i aria-hidden="true"></i></button><div class="nx-home-order">${on?button('↑','home-move',`data-block="${k}" data-direction="-1" aria-label="${labels[k]}: ${t('выше','move up')}" ${i===0?'disabled':''}`)+button('↓','home-move',`data-block="${k}" data-direction="1" aria-label="${labels[k]}: ${t('ниже','move down')}" ${i===visible.length-1?'disabled':''}`):''}</div></div>`}).join('')}</section><p class="nx-muted">${t('Стрелки меняют порядок блоков. Изменения сохраняются сразу на этом устройстве.','Use arrows to reorder blocks. Changes are saved immediately on this device.')}</p>`+button(t('Готово','Done'),'today','',true);
+  }
+  function homeAdd(){return button('‹ '+t('Сегодня','Today'),'today')+head(t('Что добавим?','What would you like to add?'))+`<div class="nx-home-add">${button('＋ '+t('Привычку','Habit'),'new-habit','',true)}${button('＋ '+t('Цель','Goal'),'new-goal')}${button('＋ '+t('Дело','Task'),'new-task')}</div>`}
   function today(){
     const tasks=state.goals.filter(g=>g.type==='task'&&(!g.deadline||g.deadline<=todayKey())&&!goalIsComplete(g));
     const completed=state.goals.filter(g=>g.type==='task'&&goalIsComplete(g)&&g.completedAt?.slice(0,10)===todayKey()).length;
     const gs=state.goals.filter(g=>g.type!=='task'&&!goalIsComplete(g)),hs=scheduledHabitsToday();
     const nextGoal=gs.find(g=>g.type!=='money'&&g.steps.some(s=>!s.done));
     const daily=hs.length?Math.round(hs.reduce((n,h)=>n+C.dayCredit(state,h,todayKey()),0)/hs.length*100):0;
-    return head(t('Сегодня','Today'),new Intl.DateTimeFormat(lang()==='en'?'en-GB':'ru-RU',{weekday:'long',day:'numeric',month:'long'}).format(new Date()))+
-      `<section class="nx-habit-hero nx-today-hero"><div><span class="nx-eyebrow">${t('ШАГ ЗА ШАГОМ','ONE STEP AT A TIME')}</span><h2>${t('Твой день','Your day')}</h2><p>${t('Каждая привычка приближает к результату','Every habit brings you closer')}</p><span class="nx-pill">${t('Привычки выполнены','Habits completed')}: ${hs.filter(done).length} / ${hs.length}</span></div>${ring(daily,t('Привычки сегодня','Habits today'),t('за сегодня','today'))}</section>`+
-      panel(t('Мои дела','My tasks'),(tasks.length?tasks.map(taskRow).join(''):empty(completed?t('Все дела на сегодня выполнены ✓','All tasks for today are done ✓'):t('Пока нет дел на сегодня.','No tasks for today yet.')))+button('＋ '+t('Добавить дело','Add a task'),'new-task','',true))+
-      panel(t('Привычки','Habits'),hs.map(habitRow).join('')||empty(t('Добавь привычку в своём ритме.','Add a habit at your own pace.')))+
-      (nextGoal?`<button class="nx-focus nx-next-step" data-nx="goal" ${attr(nextGoal.id)}><small>${t('СЛЕДУЮЩИЙ ЭТАП ЦЕЛИ','NEXT GOAL STEP')}</small><b>${esc(nextGoal.steps.find(s=>!s.done).name)}</b><span>${t('Цель','Goal')}: ${esc(nextGoal.name)} · ${t('Открыть →','Open →')}</span></button>`:'')+
-      (gs.length?panel(t('Мои цели','My goals'),gs.slice(0,3).map(goalCard).join('')):'')+
-      `<button class="nx-today-steps" data-nav="activity">${ring(activityConnected()?stepPct():0,t('Шаги','Steps'),'','green',!activityConnected())}<span><small>${window.RIVAYA_IOS?'Apple Health':'Health Connect'} · ${t('сегодня','today')}</small><b>${activityConnected()?num(state.activity.steps)+' '+t('шагов','steps'):t('Подключить шаги','Connect steps')}</b><em>${activityConnected()?t('Цель: ','Target: ')+num(state.activity.stepGoal):t('Разрешить доступ →','Allow access →')}</em></span><strong aria-hidden="true">›</strong></button>`+
-      (window.RivayaAccountUI?.friendsEntry?.(true)||'')+(window.RIVAYA_IOS?button('Apple Health · HealthKit ⓘ','health-info'):'');
+    const p=homePrefs(),blocks={summary:()=>`<section class="nx-habit-hero nx-today-hero"><div><span class="nx-eyebrow">${t('ШАГ ЗА ШАГОМ','ONE STEP AT A TIME')}</span><h2>${t('Твой день','Your day')}</h2><p>${t('Каждая привычка приближает к результату','Every habit brings you closer')}</p><span class="nx-pill">${t('Привычки выполнены','Habits completed')}: ${hs.filter(done).length} / ${hs.length}</span></div>${ring(daily,t('Привычки сегодня','Habits today'),t('за сегодня','today'))}</section>`,
+tasks:()=>panel(t('Мои дела','My tasks'),(tasks.length?tasks.map(taskRow).join(''):empty(completed?t('Все дела на сегодня выполнены ✓','All tasks for today are done ✓'):t('Пока нет дел на сегодня.','No tasks for today yet.')))+button('＋ '+t('Добавить дело','Add a task'),'new-task','',true)),
+habits:()=>panel(t('Привычки','Habits'),hs.map(habitRow).join('')||empty(t('Добавь привычку в своём ритме.','Add a habit at your own pace.'))),
+next:()=>(nextGoal?`<button class="nx-focus nx-next-step" data-nx="goal" ${attr(nextGoal.id)}><small>${t('СЛЕДУЮЩИЙ ЭТАП ЦЕЛИ','NEXT GOAL STEP')}</small><b>${esc(nextGoal.steps.find(s=>!s.done).name)}</b><span>${t('Цель','Goal')}: ${esc(nextGoal.name)} · ${t('Открыть →','Open →')}</span></button>`:''),
+goals:()=>(gs.length?panel(t('Мои цели','My goals'),gs.slice(0,3).map(goalCard).join('')):''),
+steps:()=>`<button class="nx-today-steps" data-nav="activity">${ring(activityConnected()?stepPct():0,t('Шаги','Steps'),'','green',!activityConnected())}<span><small>${window.RIVAYA_IOS?'Apple Health':'Health Connect'} · ${t('сегодня','today')}</small><b>${activityConnected()?num(state.activity.steps)+' '+t('шагов','steps'):t('Подключить шаги','Connect steps')}</b><em>${activityConnected()?t('Цель: ','Target: ')+num(state.activity.stepGoal):t('Разрешить доступ →','Allow access →')}</em></span><strong aria-hidden="true">›</strong></button>`,
+shared:()=>(window.RivayaAccountUI?.friendsEntry?.(true)||'')};
+    return `<div class="nx-home ${p.mode}">`+head(t('Сегодня','Today'),new Intl.DateTimeFormat(lang()==='en'?'en-GB':'ru-RU',{weekday:'long',day:'numeric',month:'long'}).format(new Date()))+homeSwitch()+
+      p[p.mode].map(k=>`<div class="nx-home-block" data-home-block="${k}">${blocks[k]()}</div>`).join('')+
+      (!p[p.mode].length?empty(t('Твой экран пока пуст. Добавь привычку или выбери нужные блоки.','Your home is empty. Add a habit or choose your blocks.')):'')+
+      `<div class="nx-home-footer">${button('＋ '+t('Добавить','Add'),'home-add','',true)}${button(t('Настроить экран','Customize home'),'home-settings')}</div></div>`;
   }
   function plan(){
     const tasks=state.goals.filter(g=>g.type==='task'),gs=state.goals.filter(g=>g.type!=='task');
@@ -121,8 +138,8 @@
   }
   function profile(){
     return head(t('Профиль','Profile'))+(window.RivayaAccountUI?.profile?.()||'')+panel(esc(state.profile.name||t('Пользователь','User')),`<div class="nx-avatar">${rvAvatarMarkup(state.profile.name||'R')}</div><div class="nx-actions"><button class="nx-button" data-avatar-pick>${t('Фото профиля','Profile photo')}</button>${button(t('Изменить имя','Edit name'),'profile-name')}</div>`)+
-      panel(t('Настройки','Settings'),`${button(t('Язык','Language')+' · '+({auto:t('Автоматически','Automatic'),ru:'Русский',en:'English'})[state.profile.language||'auto'],'language')}${button(t('Напоминания и тихие часы','Reminders and quiet hours'),'notifications')}${button('Apple Health / Health Connect','activity')}${button(t('Экспорт и восстановление','Export and restore'),'backup')}`)+
-      panel(t('О приложении','About'),`<p>RIVAYA 4.1 · ${t('Твои дела. Твой прогресс.','Your tasks. Your progress.')}</p><p class="nx-muted">${window.RivayaAccounts?.active?t('Локальная копия и синхронизация с аккаунтом. Статус сохранения указан выше.','Local copy and account sync. Saving status is shown above.'):t('Данные гостевого режима хранятся на этом устройстве.','Guest data stays on this device.')}</p><button class="nx-button" data-external="https://rivayaapp.com/privacy.html">${t('Конфиденциальность','Privacy')}</button><button class="nx-button" data-external="https://www.instagram.com/_isma_guder_/">@_isma_guder_</button>`);
+      panel(t('Настройки','Settings'),`${button(t('Главный экран','Home screen'),'home-settings')}${button(t('Язык','Language')+' · '+({auto:t('Автоматически','Automatic'),ru:'Русский',en:'English'})[state.profile.language||'auto'],'language')}${button(t('Напоминания и тихие часы','Reminders and quiet hours'),'notifications')}${button('Apple Health / Health Connect','activity')}${button(t('Экспорт и восстановление','Export and restore'),'backup')}`)+
+      panel(t('О приложении','About'),`<p>RIVAYA 4.1.2 · ${t('Твои дела. Твой прогресс.','Your tasks. Your progress.')}</p><p class="nx-muted">${window.RivayaAccounts?.active?t('Локальная копия и синхронизация с аккаунтом. Статус сохранения указан выше.','Local copy and account sync. Saving status is shown above.'):t('Данные гостевого режима хранятся на этом устройстве.','Guest data stays on this device.')}</p><button class="nx-button" data-external="https://rivayaapp.com/privacy.html">${t('Конфиденциальность','Privacy')}</button><button class="nx-button" data-external="https://www.instagram.com/_isma_guder_/">@_isma_guder_</button>`);
   }
   function field(key,label,type='text',extra=''){
     return `<label>${label}<input data-field="${key}" type="${type}" value="${esc(draft[key]??'')}" ${extra}></label>`;
@@ -212,6 +229,7 @@
     else if(kind==='profile-name')state.profile.name=name;
     else if(kind==='step-target'){const n=Number(d.value);if(!Number.isFinite(n)||n<1000||n>100000)throw Error(t('Цель: от 1000 до 100000','Target: 1,000 to 100,000'));state.activity.stepGoal=Math.round(n)}
     else if(kind==='notifications'){if(![d.quietStart,d.quietEnd].every(x=>/^([01]\d|2[0-3]):[0-5]\d$/.test(x)))throw Error(t('Проверь время','Check the times'));Object.assign(state.reminders,{quietEnabled:!!d.quietEnabled,quietStart:d.quietStart,quietEnd:d.quietEnd})}
+    if(['habit','task','goal'].includes(kind)&&!d.id){const p=homePrefs(),key={habit:'habits',task:'tasks',goal:'goals'}[kind];if(!p[p.mode].includes(key))p[p.mode].push(key);state.profile.homeLayout=p;}
     save();if(kind==='habit'||kind==='task')syncSmartReminders(true);draft=null;render();toast(t('Сохранено','Saved'));
   }
   function backup(){return head(t('Экспорт и восстановление','Export and restore'))+panel(t('Твои данные','Your data'),`<p>${t('Файл содержит личные данные и не зашифрован. Храни его в безопасном месте. При восстановлении текущие данные заменяются; предыдущая копия остаётся на устройстве.','The file contains personal data and is not encrypted. Keep it safe. Restoring replaces current data; a recovery copy remains on this device.')}</p>${button(t('Сохранить файл','Save file'),'backup-export')}${button(t('Выбрать файл','Choose file'),'backup-import')}`)}
@@ -222,7 +240,7 @@
     return common.concat(tasks,C.reminders(state,{quiet:timeInQuiet,expired:h=>!!h.endDate&&h.endDate<todayKey(),weekdays:h=>habitMode(h)==='weekdays',lang:lang()}));
   };
   render=function(){
-    const routes={today,plan,habits:plan,goals:plan,progress:report,stats:report,calendar:report,profile,activity,habit:habitDetail,goal:goalDetail,backup};
+    const routes={today,'home-settings':homeSettings,'home-add':homeAdd,plan,habits:plan,goals:plan,progress:report,stats:report,calendar:report,profile,activity,habit:habitDetail,goal:goalDetail,backup};
     document.documentElement.lang=lang();
     Object.assign(routes,window.RivayaNextUI?.extensions||{});
     const locked=window.RivayaAccountUI?.isLocked?.();
@@ -232,7 +250,7 @@
     if(!locked&&((draft&&renderedDraft===draft)||(externalKey&&externalKey===renderedExternalKey)))return;
     document.getElementById('view').innerHTML='<div class="nx-screen">'+(locked?window.RivayaAccountUI.lockedView():draft?editor():(routes[currentView]||today)())+'</div>';
     renderedDraft=locked?null:draft;renderedExternalKey=locked?'':externalKey;
-    const group=['habit','goal','habits','goals','shared'].includes(currentView)?'plan':['activity','stats','calendar'].includes(currentView)?'progress':['backup','account'].includes(currentView)?'profile':currentView;
+    const group=['home-settings','home-add'].includes(currentView)?'today':['habit','goal','habits','goals','shared'].includes(currentView)?'plan':['activity','stats','calendar'].includes(currentView)?'progress':['backup','account'].includes(currentView)?'profile':currentView;
     document.querySelectorAll('.nav-item').forEach(b=>{b.classList.toggle('active',b.dataset.nav===group);const small=b.querySelector('small');if(small)small.textContent=({today:t('Сегодня','Today'),plan:t('План','Plan'),progress:t('Прогресс','Progress'),profile:t('Профиль','Profile')})[b.dataset.nav]||''});
     const avatar=document.querySelector('.top-actions .avatar');if(avatar)avatar.innerHTML=rvAvatarMarkup(state.profile.name||'R');
   };
@@ -260,7 +278,10 @@
     if(el?.dataset.nx.startsWith('account-')){window.RivayaAccountUI?.action(el.dataset.nx,el);return}
     if(nav&&!el){draft=null;currentView=nav.dataset.nav;render();window.scrollTo(0,0);if(['today','activity','progress'].includes(currentView))requestNativeHealthRefresh();return}
     const a=el.dataset.nx,id=el.dataset.id;
-    if(['today','plan','profile','activity','backup'].includes(a)){draft=null;currentView=a;if(a==='activity')requestNativeHealthRefresh()}
+    if(['today','plan','profile','activity','backup','home-settings','home-add'].includes(a)){draft=null;currentView=a;if(a==='activity')requestNativeHealthRefresh()}
+    else if(a==='home-mode'){const p=homePrefs();p.mode=el.dataset.mode==='simple'?'simple':'expanded';saveHome(p)}
+    else if(a==='home-toggle'){const p=homePrefs(),k=el.dataset.block;if(homeKeys.includes(k)){p[p.mode]=p[p.mode].includes(k)?p[p.mode].filter(x=>x!==k):p[p.mode].concat(k);saveHome(p)}}
+    else if(a==='home-move'){const p=homePrefs(),list=p[p.mode],i=list.indexOf(el.dataset.block),j=i+Number(el.dataset.direction);if(i>=0&&j>=0&&j<list.length){[list[i],list[j]]=[list[j],list[i]];saveHome(p)}}
     else if(a==='habit'||a==='goal'){selected=id;draft=null;currentView=a}
     else if(a==='new-habit'||a==='edit-habit')return openEditor('habit',id);
     else if(a==='new-task'||a==='edit-task')return openEditor('task',id);

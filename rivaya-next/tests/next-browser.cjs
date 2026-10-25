@@ -94,6 +94,39 @@ const server=http.createServer((req,res)=>{const file=path.resolve(root,'.'+(req
   await review.locator('.nav-item[data-nav="plan"]').click();await review.evaluate(()=>scrollTo(0,0));await review.screenshot({path:'next-shots/plan-redesign-ru.png',fullPage:true});
   await review.evaluate(()=>{state.activity.access='not_requested';currentView='progress';render()});
   assert.equal(await review.locator('[data-nx="health-access"]').count(),1);assert.equal(await review.locator('.nx-summary-card').last().locator('.nx-ring-copy strong').innerText(),'—');
+  // Configurable homes preserve results, independent orders, and empty preferences across reloads.
+  await review.locator('.nav-item[data-nav="today"]').click();
+  await review.locator('[data-nx="home-mode"][data-mode="simple"]').click();
+  await review.locator('[data-nx="home-settings"]').click();
+  // Seed only the preferences; the same real habit data remains authoritative.
+  await review.evaluate(()=>{state.profile.homeLayout={mode:'simple',simple:['habits'],expanded:['summary','tasks','habits','next','goals','steps','shared']};save();render()});
+  await review.locator('[data-nx="home-toggle"][data-block="steps"]').click();
+  await review.locator('[data-nx="home-move"][data-block="steps"][data-direction="-1"]').click();
+  await review.locator('[data-nx="today"]').last().click();
+  assert.deepEqual(await review.locator('[data-home-block]').evaluateAll(es=>es.map(e=>e.dataset.homeBlock)),['steps','habits']);
+  const quantityBefore=await review.evaluate(()=>state.habits.find(h=>h.id==='quantity').counts[todayKey()].value);
+  await review.locator('[data-nx="plus"][data-id="quantity"]').click();
+  assert.equal(await review.evaluate(()=>state.habits.find(h=>h.id==='quantity').counts[todayKey()].value),quantityBefore+1);
+  await review.locator('[data-nx="home-mode"][data-mode="expanded"]').click();
+  assert.equal(await review.locator('[data-home-block]').count(),7);
+  await review.locator('[data-nx="home-mode"][data-mode="simple"]').click();
+  await review.reload();
+  assert.deepEqual(await review.locator('[data-home-block]').evaluateAll(es=>es.map(e=>e.dataset.homeBlock)),['steps','habits']);
+  await review.locator('[data-nx="home-settings"]').click();
+  for(const k of ['steps','habits'])await review.locator('[data-nx="home-toggle"][data-block="'+k+'"]').click();
+  for(const width of [320,390,430]){await review.setViewportSize({width,height:844});assert(await review.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'home settings overflow '+width)}
+  await review.setViewportSize({width:390,height:844});await review.screenshot({path:'next-shots/home-settings-ru.png',fullPage:true});
+  await review.locator('[data-nx="today"]').last().click();await review.reload();assert.equal(await review.locator('[data-home-block]').count(),0);
+  await review.locator('[data-nx="home-add"]').click();await review.locator('[data-nx="new-habit"]').click();
+  await review.locator('[data-field="name"]').fill('Новая простая привычка');await review.locator('#nx-form button[type="submit"]').click();
+  await review.locator('.nav-item[data-nav="today"]').click();assert.equal(await review.locator('[data-home-block="habits"]').count(),1);
+  await review.screenshot({path:'next-shots/home-simple-ru.png',fullPage:true});
+  await review.locator('[data-nx="home-mode"][data-mode="expanded"]').click();await review.screenshot({path:'next-shots/home-expanded-ru.png',fullPage:true});
+  // Existing installations without home preferences migrate to the detailed home.
+  await review.evaluate(()=>{delete state.profile.homeLayout;save()});await review.reload();
+  assert.equal(await review.locator('.nx-home.expanded').count(),1);
+  assert.equal(await review.evaluate(()=>state.habits.find(h=>h.id==='quantity').counts[todayKey()].value),quantityBefore+1);
+  console.log('PASS: home modes, visibility, order, empty home, new habits, migration and count preservation');
   await review.close();
   // Exercise the gated account UI with synthetic sessions; no real email or backend.
   const account=await browser.newPage({viewport:{width:390,height:844}}),accountErrors=[];

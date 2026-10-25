@@ -11,7 +11,7 @@ const defaultState = {
     quietStart:'23:00',
     quietEnd:'08:00'
   },
-  profile:{name:'',avatarData:'',onboardingDone:false},
+  profile:{name:'',avatarData:'',onboardingDone:false,homeLayout:{mode:'simple'}},
   goalSnapshots:{},
   activity:{
     access:'denied',
@@ -98,6 +98,8 @@ function loadState(){
     merged.activity.dailySteps={...(s.activity?.dailySteps||{})};
     merged.reminders={...defaultState.reminders,...(s.reminders||{})};
     merged.profile={...defaultState.profile,...(s.profile||{})};
+    // Preserve the detailed home for installations created before configurable homes.
+    if(!s.profile?.homeLayout)merged.profile.homeLayout={mode:'expanded'};
     merged.goalSnapshots={...(s.goalSnapshots||{})};
     if(!Array.isArray(merged.reminders.times)) merged.reminders.times=clone(defaultState.reminders.times);
     merged.reminders.times=merged.reminders.times.filter(Boolean).slice(0,3);

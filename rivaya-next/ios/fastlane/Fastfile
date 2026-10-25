@@ -52,8 +52,30 @@ platform :ios do
       increment_build_number(build_number: ENV.fetch('RIVAYA_BUILD_NUMBER'), xcodeproj: 'Rivaya.xcodeproj')
       build_app(project: 'Rivaya.xcodeproj', scheme: 'Rivaya', clean: true, output_directory: 'build/store', output_name: 'RIVAYA.ipa', export_method: 'app-store',
         export_options: { provisioningProfiles: { 'app.rivaya.smart01' => plist['Name'] }, signingStyle: 'manual', teamID: 'M2329MH9ZX' })
-      api = app_store_connect_api_key(key_id: ENV.fetch('ASC_KEY_ID'), issuer_id: ENV.fetch('ASC_ISSUER_ID'), key_content: ENV.fetch('ASC_KEY_P8_BASE64'), is_key_content_base64: true)
+      api = app_store_connect_api_key(key_id: ENV.fetch('ASC_KEY_ID'), issuer_id: ENV.fetch('ASC_ISSUER_ID'), key_content: ENV.fetch('ASC_KEY_P8_BASE64'), is_key_content_base64: true, duration: 1200)
       upload_to_testflight(api_key: api, app_identifier: 'app.rivaya.smart01', apple_id: '6823716293', ipa: 'build/store/RIVAYA.ipa', skip_waiting_for_build_processing: true, distribute_external: false)
+      # Upload success alone does not give the existing personal group access.
+      # Wait for this exact build, assign only the known internal group, and verify.
+      group_id = '2c4000e6-c4e6-4fe7-8126-46dc4f106e58'
+      group = Spaceship::ConnectAPI.get_beta_groups(filter: { app: '6823716293' }).all_pages.flat_map(&:to_models).find { |g| g.id == group_id }
+      UI.user_error!('RIVAYA personal internal group was not found') unless group && group.is_internal_group
+      deadline = Time.now + 900
+      build = nil
+      loop do
+        build = Spaceship::ConnectAPI::Build.all(app_id: '6823716293', build_number: ENV.fetch('RIVAYA_BUILD_NUMBER')).first
+        if build
+          UI.user_error!("Apple rejected build processing: #{build.processing_state}") if %w[FAILED INVALID].include?(build.processing_state)
+          break if build.processing_state == 'VALID'
+        end
+        UI.user_error!('Binary uploaded; Apple processing is still pending. Internal group assignment is not confirmed.') if Time.now >= deadline
+        UI.message('Waiting for Apple processing of the exact uploaded build...')
+        sleep(30)
+      end
+      assigned = -> { Spaceship::ConnectAPI.get_builds_for_beta_group(group_id: group_id).all_pages.flat_map(&:to_models).any? { |b| b.id == build.id } }
+      build.add_beta_groups(beta_groups: [group]) unless assigned.call
+      UI.user_error!('Build uploaded, but internal group assignment could not be confirmed') unless assigned.call
+      UI.success("RIVAYA #{build.version}: confirmed in personal internal TestFlight group")
+
     ensure
       delete_keychain(keychain_path: keychain) if File.exist?(keychain)
       FileUtils.remove_entry(signing) if File.directory?(signing)
