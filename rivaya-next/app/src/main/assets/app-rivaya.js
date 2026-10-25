@@ -123,6 +123,7 @@ function loadState(){
           copy.contributions=Array.isArray(copy.contributions)?copy.contributions:[];
         }
       }
+      if(copy.type==='quantity')syncGoalStatus(copy);
       copy.reminderEnabled=!!copy.reminderEnabled;
       copy.reminderTime=copy.reminderTime||'';
       return copy;
@@ -197,17 +198,19 @@ function esc(s=''){return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt
 function daysLeft(date){if(!date)return 'Без срока';const d=Math.ceil((new Date(date+'T12:00:00')-new Date())/86400000);return d<0?'Срок прошёл':d===0?'Сегодня':`${d} дн. до срока`}
 function fmtMoney(n){return new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(Math.max(0,Math.round(Number(n)||0)))+' ₽'}
 function goalPct(g){
+  if(g.type==='quantity')return Math.min(100,Math.floor((Number(g.currentValue)||0)/Math.max(0.000001,Number(g.targetValue)||1)*100));
   if(g.type==='money')return Math.min(100,Math.round((Number(g.currentAmount)||0)/Math.max(1,Number(g.targetAmount)||1)*100));
   return g.steps.length?Math.round(g.steps.filter(s=>s.done).length/g.steps.length*100):0;
 }
 function goalIsComplete(g){
   if(g.status==='completed')return true;
   if(g.status==='active')return false;
+  if(g.type==='quantity')return g.targetValue>0&&g.currentValue>=g.targetValue;
   if(g.type==='money')return (Number(g.targetAmount)||0)>0 && (Number(g.currentAmount)||0)>=(Number(g.targetAmount)||0);
   return g.steps.length>0 && g.steps.every(s=>s.done);
 }
 function syncGoalStatus(g){
-  const complete=g.type==='money'
+  const complete=g.type==='quantity' ? g.targetValue>0&&g.currentValue>=g.targetValue : g.type==='money'
     ? ((Number(g.targetAmount)||0)>0 && (Number(g.currentAmount)||0)>=(Number(g.targetAmount)||0))
     : (g.steps.length>0 && g.steps.every(s=>s.done));
   if(complete){g.status='completed';g.completedAt=g.completedAt||todayKey()}
@@ -246,8 +249,8 @@ function eachDate(start,end,fn){
 function weekKey(d){
   const x=startOfDay(d);const delta=(x.getDay()+6)%7;x.setDate(x.getDate()-delta);return dateKey(x);
 }
-function habitStats(h,days){
-  const today=startOfDay(new Date());
+function habitStats(h,days,ending=new Date()){
+  const today=startOfDay(ending);
   const ended=habitEndDate(h);
   const end=ended && ended<today?ended:today;
   const periodStart=new Date(today);periodStart.setDate(today.getDate()-Math.max(1,days)+1);

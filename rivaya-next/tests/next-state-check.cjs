@@ -35,15 +35,15 @@ assert.equal(run('habitStats(state.habits[0],7).p'),44);
 assert.equal(run('doneToday("partial")'),false,'partial result is not a full completion');
 assert.equal(run('goalPct(state.goals[0])'),40);
 run("currentView='progress';render()");
-assert(els.view.innerHTML.includes('44 / 100'));
+assert(els.view.innerHTML.includes('44%'));
 assert(els.view.innerHTML.includes('2 / 5'));
 assert(els.view.innerHTML.includes('Apple Health'));
 assert(els.view.innerHTML.includes('Разрешить доступ'),'missing access remains visible');
 run("state.habits[0].target=200");assert.equal(run('habitStats(state.habits[0],7).p'),44,'stored target determines historical credit');
 run("window.RivayaNextCore.changeCount(state,'partial',todayKey(),140)");assert.equal(run('habitStats(state.habits[0],7).p'),100,'overcompletion is capped');
 run("state.habits[0].freq='3 раза в неделю';window.RivayaNextCore.changeCount(state,'partial',todayKey(),44)");assert.equal(run('habitStats(state.habits[0],7).p'),44,'weekly schedules retain partial credit');
-run("state.activity.access='granted';state.activity.day=todayKey();state.activity.steps=6280;state.activity.stepGoal=10000;render()");
-assert(els.view.innerHTML.includes('63%'),'native steps included in overview');
+run("state.activity.access='granted';state.activity.day=todayKey();state.activity.steps=6280;state.activity.stepGoal=10000;recordDailySnapshots();render()");
+assert(els.view.innerHTML.includes('6 280'),'native steps included in selected period');
 console.log('PASS: report partial quantities, unfinished stages, stored targets, weekly schedules and native step rings');
 
 run("state.goals.push({id:'finished-today',name:'Проверить готовое дело',type:'task',status:'active',createdAt:todayKey(),steps:[{id:'t',name:'Дело',done:false}]});currentView='today';render()");
@@ -69,3 +69,20 @@ run("window.RivayaNextUI.openEditor('increment','increments');window.RivayaNextU
 run("window.RivayaNextUI.getDraft().increment=0.1;window.RivayaNextUI.commit();window.RivayaNextCore.changeCount(state,'increments',todayKey(),0);for(let i=0;i<3;i++)window.RivayaNextCore.addCount(state,'increments',todayKey())");assert.equal(run('window.RivayaNextCore.entry(state.habits.at(-1),todayKey()).value'),0.3);
 run("window.RivayaNextCore.changeCount(state,'increments',todayKey(),1000000000)");assert.throws(()=>run("window.RivayaNextCore.addCount(state,'increments',todayKey())"));assert.equal(run('window.RivayaNextCore.entry(state.habits.at(-1),todayKey()).value'),1000000000);
 console.log('PASS: custom increments, +1 override, restart, immutable result when editing step, decimal sums and invalid increment rejection');
+
+// Quantity goals retain values and history through local reload, restore and cloud projection.
+run("window.RivayaNextUI.openEditor('goal');Object.assign(window.RivayaNextUI.getDraft(),{name:'Read 300 pages',type:'quantity',targetValue:300,currentValue:60,unit:'pages'});window.RivayaNextUI.commit();state.goals.at(-1).id='pages'");
+assert.equal(run('goalPct(state.goals.at(-1))'),20);
+run("window.RivayaNextUI.openEditor('quantity-add','pages');window.RivayaNextUI.getDraft().value=20;window.RivayaNextUI.commit();save();state=loadState()");
+assert.equal(run("state.goals.find(g=>g.id==='pages').currentValue"),80);
+assert.equal(run("state.goals.find(g=>g.id==='pages').entries.length"),2);
+assert.equal(run("goalPct(state.goals.find(g=>g.id==='pages'))"),26);
+run("state.goals.forEach(g=>g.steps.forEach(s=>s.name=s.name||s.id));const qbackup=backupText();state.goals=[];restoreBackupText(qbackup)");
+assert.equal(run("state.goals.find(g=>g.id==='pages').currentValue"),80);
+run("window.RivayaNextUI.openEditor('quantity-add','pages');window.RivayaNextUI.getDraft().value=-1");assert.throws(()=>run('window.RivayaNextUI.commit()'));
+assert.equal(run("state.goals.find(g=>g.id==='pages').currentValue"),80);
+run("window.RivayaNextUI.getDraft().value=220;window.RivayaNextUI.commit()");assert.equal(run("state.goals.find(g=>g.id==='pages').status"),'completed');
+run("window.RivayaNextUI.openEditor('goal','pages');window.RivayaNextUI.getDraft().targetValue=400;window.RivayaNextUI.commit()");assert.equal(run("state.goals.find(g=>g.id==='pages').status"),'active');
+run("window.RivayaNextUI.openEditor('goal','pages');window.RivayaNextUI.getDraft().unit='km'");assert.throws(()=>run('window.RivayaNextUI.commit()'));
+assert.equal(run("state.goals.find(g=>g.id==='pages').unit"),'pages');
+console.log('PASS: quantity goal increments, immutable units/history, restart, backup, negative values, completion and target extension');

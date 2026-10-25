@@ -41,7 +41,17 @@
         for(const [day,e] of Object.entries(h.counts))if(!datePattern.test(day)||!e||!finite(e.value)||e.value<0||e.value>1000000000||!finite(e.target)||e.target<=0||typeof e.unit!=='string'||e.unit.length>30)throw Error('invalid_history');
       }
     }
+    for(const g of state.goals||[])if(g.type==='quantity'){
+      if(!finite(g.targetValue)||g.targetValue<=0||g.targetValue>1e9||!finite(g.currentValue)||g.currentValue<0||g.currentValue>1e9||typeof g.unit!=='string'||!g.unit.trim()||g.unit.length>30||!Array.isArray(g.entries))throw Error('invalid_quantity_goal');
+      const ids=new Set();for(const e of g.entries){if(!e||typeof e.id!=='string'||ids.has(e.id)||!datePattern.test(e.date)||!finite(e.amount)||e.amount<=0||e.amount>1e9)throw Error('invalid_goal_entry');ids.add(e.id)}
+    }
     return true;
+  }
+  function addGoalValue(g,amount,id,day){
+    validation({goals:[g]});
+    if(g.type!=='quantity'||!finite(amount)||amount<=0||amount>1e9||!datePattern.test(day)||typeof id!=='string'||g.entries.some(e=>e.id===id))throw Error('invalid_goal_entry');
+    const next=Number((g.currentValue+amount).toFixed(6));if(next>1e9)throw Error('invalid_goal_total');
+    g.entries.push({id,date:day,amount});g.currentValue=next;return next;
   }
   function skipDates(h,checks){
     if(h.stopWhenDone===false)return [];
@@ -61,7 +71,7 @@
     const checks=Object.entries(state.checks||{}).filter(([k,v])=>v&&days.includes(k.slice(0,10))).length;
     return {tasks,goals,checks};
   }
-  const api={times,entry,numeric,increment,addCount,dayCredit,changeCount,validation,skipDates,reminders,weekSummary};
+  const api={addGoalValue,times,entry,numeric,increment,addCount,dayCredit,changeCount,validation,skipDates,reminders,weekSummary};
   if(typeof module!=='undefined'&&module.exports)module.exports=api;
   root.RivayaNextCore=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

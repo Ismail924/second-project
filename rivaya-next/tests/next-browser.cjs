@@ -7,7 +7,7 @@ const server=http.createServer((req,res)=>{const file=path.resolve(root,'.'+(req
   const p=await browser.newPage({viewport:{width:390,height:844},deviceScaleFactor:2,isMobile:true,hasTouch:true});const errors=[];p.on('pageerror',e=>errors.push(e.message));await p.addInitScript(()=>{window.RIVAYA_IOS=true});
   await p.goto('http://127.0.0.1:'+server.address().port);await p.locator('#finishOnboardingBtn').click();
   await p.evaluate(()=>{state.profile.language='ru';render()});
-  await p.locator('.nav-item[data-nav="plan"]').click();await p.locator('[data-nx="new-habit"]').click();
+  await p.locator('.nav-item[data-nav="plan"]').click();await p.locator('[data-nx="home-add"]').click();await p.locator('[data-nx="new-habit"]').click();
   await p.locator('[data-field="name"]').fill('100 отжиманий');
   // Health and sync callbacks must preserve the active editor node and focus.
   await p.locator('[data-field="name"]').focus();
@@ -21,7 +21,7 @@ const server=http.createServer((req,res)=>{const file=path.resolve(root,'.'+(req
   assert(await p.evaluate(()=>document.querySelector('[data-field="unit"]')===window.unitNode&&document.activeElement===window.unitNode));
   assert.equal(await p.locator('[data-field="unit"]').inputValue(),'км');
   await p.locator('[data-field="target"]').fill('100');await p.locator('[data-field="unitChoice"]').selectOption('раз');
-  await p.locator('[data-field="reminderEnabled"]').check();
+  await p.locator('.nx-advanced summary').click();await p.locator('[data-field="reminderEnabled"]').check();
   for(const [i,time]of ['10:00','15:00','20:00'].entries()){await p.locator('[data-nx="add-time"]').click();await p.locator('[data-time="'+i+'"]').fill(time)}
   await p.locator('#nx-form button[type="submit"]').click();
   await p.locator('[data-nx="habit"]').filter({hasText:'100 отжиманий'}).first().click();await p.locator('[data-nx="count"]').click();await p.locator('[data-field="value"]').fill('30');await p.locator('#nx-form button[type="submit"]').click();
@@ -32,12 +32,12 @@ const server=http.createServer((req,res)=>{const file=path.resolve(root,'.'+(req
 
   await p.reload();await p.locator('.nav-item[data-nav="plan"]').click();await p.locator('[data-nx="habit"]').filter({hasText:'100 отжиманий'}).first().click();assert((await p.locator('.nx-number').innerText()).includes('30'));
   fs.mkdirSync('next-shots',{recursive:true});await p.screenshot({path:'next-shots/habit.png',fullPage:true});
-  await p.locator('.nav-item[data-nav="plan"]').click();await p.locator('[data-nx="new-task"]').click();await p.locator('[data-field="name"]').fill('Подготовить документы');await p.locator('#nx-form button[type="submit"]').click();
+  await p.locator('.nav-item[data-nav="plan"]').click();await p.locator('[data-nx="home-add"]').click();await p.locator('[data-nx="new-task"]').click();await p.locator('[data-field="name"]').fill('Подготовить документы');await p.locator('#nx-form button[type="submit"]').click();
   await p.locator('.nav-item[data-nav="today"]').click();assert((await p.locator('#view').innerText()).includes('Подготовить документы'));
   await p.locator('[data-nx="task-check"]').click();assert.equal(await p.evaluate(()=>state.goals.find(g=>g.type==='task').status),'completed');
   assert(!(await p.locator('#view').innerText()).includes('Подготовить документы'),'completed task leaves Today');
-  await p.locator('.nav-item[data-nav="plan"]').click();assert((await p.locator('#view').innerText()).includes('Подготовить документы'),'history remains in Plan');
-  await p.locator('.nav-item[data-nav="plan"]').click();await p.locator('[data-nx="new-goal"]').click();await p.locator('[data-field="name"]').fill('Подготовиться к экзамену');await p.locator('#nx-form button[type="submit"]').click();
+  await p.locator('.nav-item[data-nav="plan"]').click();await p.locator('.nx-completed summary').click();assert((await p.locator('#view').innerText()).includes('Подготовить документы'),'history remains in Plan');
+  await p.locator('.nav-item[data-nav="plan"]').click();await p.locator('[data-nx="home-add"]').click();await p.locator('[data-nx="new-goal"]').click();await p.locator('[data-field="name"]').fill('Подготовиться к экзамену');await p.locator('#nx-form button[type="submit"]').click();
   await p.locator('[data-nx="goal"]').filter({hasText:'Подготовиться к экзамену'}).click();await p.locator('[data-nx="new-step"]').click();await p.locator('[data-field="name"]').fill('Разобрать вопросы');await p.locator('#nx-form button[type="submit"]').click();await p.locator('[data-nx="step"]').click();
   assert.equal(await p.evaluate(()=>state.goals.find(g=>g.type==='regular').status),'completed');
   await p.locator('.nav-item[data-nav="profile"]').click();await p.locator('[data-nx="language"]').click();await p.locator('[data-field="language"]').selectOption('en');await p.locator('#nx-form button[type="submit"]').click();
@@ -59,13 +59,13 @@ const server=http.createServer((req,res)=>{const file=path.resolve(root,'.'+(req
   });
   assert.equal(await review.locator('.nx-report-habit').filter({hasText:'Ничего'}).locator('strong').innerText(),'44%');
   assert((await review.locator('#nx-report-goals').innerText()).includes('2 / 5'));
-  assert((await review.locator('.nx-summary-card').last().innerText()).includes('6'));
+  assert((await review.locator('.nx-period-steps').innerText()).includes('6'));
   for(const width of [320,390,430,768]){await review.setViewportSize({width,height:844});assert(await review.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'progress width '+width)}
   await review.setViewportSize({width:390,height:844});await review.waitForFunction(()=>!document.getElementById('toast').classList.contains('show'));await review.screenshot({path:'next-shots/progress-redesign-ru.png',fullPage:true,style:'.rv-bottom-nav.bottom-nav,.toast{display:none!important}'});
   await review.screenshot({path:'next-shots/progress-overview-ru.png'});
   // Step history uses the actual native daily map, not fabricated missing zeroes.
   await review.evaluate(()=>{const daily={};for(let i=0;i<30;i++){const d=new Date();d.setDate(d.getDate()-i);daily[dateKey(d)]=(30-i)*100}state.activity.dailySteps=daily;state.activity.steps=3000;render()});
-  assert((await review.locator('.nx-summary-card').last().innerText()).includes('Шаги'));
+  assert((await review.locator('.nx-period-steps').innerText()).includes('Шаги'));
   await review.locator('.nx-step-symbol').click();
   assert.equal(await review.locator('.nx-step-bar').count(),7);
   assert.equal((await review.locator('.nx-step-kpis b').first().innerText()).replace(/\s/g,''),'18900');
@@ -93,40 +93,46 @@ const server=http.createServer((req,res)=>{const file=path.resolve(root,'.'+(req
   await review.screenshot({path:'next-shots/today-full-ru.png',fullPage:true,style:'.rv-bottom-nav.bottom-nav,.toast{display:none!important}'});
   await review.locator('.nav-item[data-nav="plan"]').click();await review.evaluate(()=>scrollTo(0,0));await review.screenshot({path:'next-shots/plan-redesign-ru.png',fullPage:true});
   await review.evaluate(()=>{state.activity.access='not_requested';currentView='progress';render()});
-  assert.equal(await review.locator('[data-nx="health-access"]').count(),1);assert.equal(await review.locator('.nx-summary-card').last().locator('.nx-ring-copy strong').innerText(),'—');
-  // Configurable homes preserve results, independent orders, and empty preferences across reloads.
-  await review.locator('.nav-item[data-nav="today"]').click();
-  await review.locator('[data-nx="home-mode"][data-mode="simple"]').click();
-  await review.locator('[data-nx="home-settings"]').click();
-  // Seed only the preferences; the same real habit data remains authoritative.
-  await review.evaluate(()=>{state.profile.homeLayout={mode:'simple',simple:['habits'],expanded:['summary','tasks','habits','next','goals','steps','shared']};save();render()});
-  await review.locator('[data-nx="home-toggle"][data-block="steps"]').click();
-  await review.locator('[data-nx="home-move"][data-block="steps"][data-direction="-1"]').click();
-  await review.locator('[data-nx="today"]').last().click();
+  assert.equal(await review.locator('[data-nx="health-access"]').count(),1);assert.equal(await review.locator('.nx-period-steps b').innerText(),'—');
+  // Home controls are in Profile, while visible quantities remain actionable on Today.
+  async function settings(){await review.locator('.nav-item[data-nav="profile"]').click();await review.locator('[data-nx="home-settings"]').click()}
+  async function today(){await review.locator('.nav-item[data-nav="today"]').click()}
+  async function mode(m){await settings();await review.locator('[data-nx="home-mode"][data-mode="'+m+'"]').click();await today()}
+  await today();assert.equal(await review.locator('[data-nx="home-mode"]').count(),0);assert.equal(await review.locator('[data-nx="home-settings"]').count(),0);
+  await settings();await review.evaluate(()=>{state.profile.homeLayout={mode:'simple',simple:['habits'],expanded:['summary','tasks','habits','next','goals','steps','shared']};save();render()});
+  await review.locator('[data-nx="home-toggle"][data-block="steps"]').click();await review.locator('[data-nx="home-move"][data-block="steps"][data-direction="-1"]').click();await today();
   assert.deepEqual(await review.locator('[data-home-block]').evaluateAll(es=>es.map(e=>e.dataset.homeBlock)),['steps','habits']);
   const quantityBefore=await review.evaluate(()=>state.habits.find(h=>h.id==='quantity').counts[todayKey()].value);
-  await review.locator('[data-nx="plus"][data-id="quantity"]').click();
-  assert.equal(await review.evaluate(()=>state.habits.find(h=>h.id==='quantity').counts[todayKey()].value),quantityBefore+1);
-  await review.locator('[data-nx="home-mode"][data-mode="expanded"]').click();
-  assert.equal(await review.locator('[data-home-block]').count(),7);
-  await review.locator('[data-nx="home-mode"][data-mode="simple"]').click();
-  await review.reload();
+  await review.locator('[data-nx="plus"][data-id="quantity"]').click();assert.equal(await review.evaluate(()=>state.habits.find(h=>h.id==='quantity').counts[todayKey()].value),quantityBefore+1);
+  await mode('expanded');assert.equal(await review.locator('[data-home-block]').count(),7);await mode('simple');await review.reload();
   assert.deepEqual(await review.locator('[data-home-block]').evaluateAll(es=>es.map(e=>e.dataset.homeBlock)),['steps','habits']);
-  await review.locator('[data-nx="home-settings"]').click();
-  for(const k of ['steps','habits'])await review.locator('[data-nx="home-toggle"][data-block="'+k+'"]').click();
+  await settings();for(const k of ['steps','habits'])await review.locator('[data-nx="home-toggle"][data-block="'+k+'"]').click();
   for(const width of [320,390,430]){await review.setViewportSize({width,height:844});assert(await review.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'home settings overflow '+width)}
-  await review.setViewportSize({width:390,height:844});await review.screenshot({path:'next-shots/home-settings-ru.png',fullPage:true});
-  await review.locator('[data-nx="today"]').last().click();await review.reload();assert.equal(await review.locator('[data-home-block]').count(),0);
+  await review.setViewportSize({width:390,height:844});await review.screenshot({path:'next-shots/home-settings-ru.png',fullPage:true,style:'#rivayaSplash{display:none!important}'});
+  await today();await review.reload();assert.equal(await review.locator('[data-home-block]').count(),0);
   await review.locator('[data-nx="home-add"]').click();await review.locator('[data-nx="new-habit"]').click();
-  await review.locator('[data-field="name"]').fill('Новая простая привычка');await review.locator('#nx-form button[type="submit"]').click();
-  await review.locator('.nav-item[data-nav="today"]').click();assert.equal(await review.locator('[data-home-block="habits"]').count(),1);
-  await review.screenshot({path:'next-shots/home-simple-ru.png',fullPage:true});
-  await review.locator('[data-nx="home-mode"][data-mode="expanded"]').click();await review.screenshot({path:'next-shots/home-expanded-ru.png',fullPage:true});
-  // Existing installations without home preferences migrate to the detailed home.
-  await review.evaluate(()=>{delete state.profile.homeLayout;save()});await review.reload();
-  assert.equal(await review.locator('.nx-home.expanded').count(),1);
+  assert.equal(await review.locator('.nx-advanced').getAttribute('open'),null);await review.locator('[data-field="name"]').fill('Новая простая привычка');
+  assert((await review.locator('#nx-habit-preview').innerText()).includes('Новая простая привычка'));
+  await review.locator('#nx-form button[type="submit"]').click();assert.equal(await review.locator('[data-home-block="habits"]').count(),1,'new habit returns to Today');
+  await review.screenshot({path:'next-shots/home-simple-ru.png',fullPage:true,style:'#rivayaSplash{display:none!important}'});
+  await mode('expanded');await review.screenshot({path:'next-shots/home-expanded-ru.png',fullPage:true,style:'#rivayaSplash{display:none!important}'});
+  // Quantitative goals are created from Plan and retain entry history after restart.
+  await review.locator('.nav-item[data-nav="plan"]').click();assert.equal(await review.locator('[data-nx="home-add"]').count(),1);
+  await review.locator('[data-nx="home-add"]').click();await review.locator('[data-nx="new-goal"]').click();await review.locator('[data-field="name"]').fill('Прочитать книгу');await review.locator('[data-field="type"]').selectOption('quantity');
+  await review.locator('[data-field="targetValue"]').fill('300');await review.locator('[data-field="currentValue"]').fill('60');await review.locator('[data-field="unit"]').fill('страниц');
+  await review.screenshot({path:'next-shots/quantity-create-ru.png',fullPage:true,style:'#rivayaSplash{display:none!important}'});await review.locator('#nx-form button[type="submit"]').click();
+  await review.locator('[data-nx="plan-filter"][data-filter="goals"]').click();assert.equal(await review.locator('[data-nx="habit"]').count(),0);
+  await review.locator('[data-nx="goal"]').filter({hasText:'Прочитать книгу'}).click();await review.locator('[data-nx="quantity-add"]').click();await review.locator('[data-field="value"]').fill('20');assert((await review.locator('#nx-quantity-after').innerText()).includes('80'));
+  await review.locator('#nx-form button[type="submit"]').click();assert((await review.locator('.nx-quantity-hero').innerText()).includes('80'));
+  for(const width of [320,390,430]){await review.setViewportSize({width,height:844});assert(await review.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'quantity detail overflow '+width)}
+  await review.setViewportSize({width:390,height:844});await review.screenshot({path:'next-shots/quantity-detail-ru.png',fullPage:true,style:'#rivayaSplash{display:none!important}'});
+  await review.reload();await review.locator('.nav-item[data-nav="plan"]').click();await review.locator('[data-nx="goal"]').filter({hasText:'Прочитать книгу'}).click();assert((await review.locator('.nx-quantity-hero').innerText()).includes('80'));assert.equal(await review.locator('.nx-history').count(),2);
+  await review.locator('.nav-item[data-nav="progress"]').click();const dates=await review.locator('.nx-report-range b').innerText();await review.locator('[data-nx="report-prev"]').click();assert.notEqual(await review.locator('.nx-report-range b').innerText(),dates);assert((await review.locator('#nx-report-goals').innerText()).includes('80 / 300'));
+  await review.locator('[data-nx="period"][data-period="30"]').click();assert.equal(await review.locator('.nx-report-bar').count(),30);await review.screenshot({path:'next-shots/report-month-ru.png',fullPage:true,style:'#rivayaSplash{display:none!important}'});
+  await review.locator('[data-nx="period"][data-period="7"]').click();assert.equal(await review.locator('.nx-report-bar').count(),7);
+  await review.evaluate(()=>{delete state.profile.homeLayout;save()});await review.reload();assert.equal(await review.locator('.nx-home.expanded').count(),1);
   assert.equal(await review.evaluate(()=>state.habits.find(h=>h.id==='quantity').counts[todayKey()].value),quantityBefore+1);
-  console.log('PASS: home modes, visibility, order, empty home, new habits, migration and count preservation');
+  console.log('PASS: Profile home settings, independent layouts, hidden controls, form preview, quantity goal creation/history/restart, Plan filters and selected report periods');
   await review.close();
   // Exercise the gated account UI with synthetic sessions; no real email or backend.
   const account=await browser.newPage({viewport:{width:390,height:844}}),accountErrors=[];
@@ -224,19 +230,19 @@ const server=http.createServer((req,res)=>{const file=path.resolve(root,'.'+(req
    });
    await page.goto('http://127.0.0.1:'+server.address().port);await page.locator('#finishOnboardingBtn').click();await page.waitForFunction(()=>window.RivayaAccountUI&&!window.RivayaAccountUI.isLocked());await page.evaluate(()=>{state.profile.language='ru';render()});
   }
-  const[a,b,c]=team;await a.locator('.nav-item[data-nav="plan"]').click();await a.locator('[data-nx="account-new-shared"]').click();await a.locator('[data-nx="account-apple"]').click();await a.locator('#shared-form').waitFor();
+  const[a,b,c]=team;await a.locator('.nav-item[data-nav="plan"]').click();await a.locator('[data-nx="account-shared"]').click();await a.locator('[data-nx="account-apple"]').click();await a.locator('[data-nx="account-new-shared"]').waitFor();await a.locator('[data-nx="account-new-shared"]').click();await a.locator('#shared-form').waitFor();
   await a.locator('[data-account-field="title"]').fill('Тренируемся вместе');await a.locator('[data-account-field="name"]').fill('Исмаил');await a.locator('[data-account-field="title"]').focus();
   await a.evaluate(()=>{window.sharedTitleNode=document.querySelector('[data-account-field="title"]');window.vektorOnNativeSteps({status:'granted',day:todayKey(),steps:100});render()});
   assert(await a.evaluate(()=>document.activeElement===window.sharedTitleNode&&document.querySelector('[data-account-field="title"]')===window.sharedTitleNode),'shared form survives Health updates');
   await a.locator('#shared-form button[type="submit"]').click();await a.locator('[data-nx="account-invite"]').waitFor();await a.locator('[data-nx="account-invite"]').click();await a.locator('.nx-invite').waitFor();await a.locator('[data-nx="account-share-invite"]').click();await a.waitForFunction(()=>!!window.sharedInvitation);const inviteText=await a.evaluate(()=>window.sharedInvitation);
-  await b.locator('.nav-item[data-nav="plan"]').click();await b.locator('[data-nx="account-join"]').click();await b.locator('[data-nx="account-apple"]').click();await b.locator('#shared-form').waitFor();await b.locator('[data-account-field="token"]').fill(inviteText);await b.locator('[data-account-field="name"]').fill('Друг');await b.locator('#shared-form button[type="submit"]').click();await b.getByRole('heading',{name:'Тренируемся вместе'}).waitFor();assert.equal(await b.locator('[data-nx="account-invite"]').count(),0);
+  await b.locator('.nav-item[data-nav="plan"]').click();await b.locator('[data-nx="account-shared"]').click();await b.locator('[data-nx="account-apple"]').click();await b.locator('[data-nx="account-join"]').waitFor();await b.locator('[data-nx="account-join"]').click();await b.locator('#shared-form').waitFor();await b.locator('[data-account-field="token"]').fill(inviteText);await b.locator('[data-account-field="name"]').fill('Друг');await b.locator('#shared-form button[type="submit"]').click();await b.getByRole('heading',{name:'Тренируемся вместе'}).waitFor();assert.equal(await b.locator('[data-nx="account-invite"]').count(),0);
   await a.locator('[data-nx="account-shared"]').click();await a.locator('[data-nx="account-open-shared"]').waitFor();await a.locator('[data-nx="account-open-shared"]').click();await a.locator('[data-nx="account-new-shared-step"]').click();await a.locator('[data-account-field="title"]').fill('Сделать 20 отжиманий');await a.locator('[data-account-field="assigned_to"]').selectOption(people[1]);
   await a.evaluate(()=>{window.vektorOnNativeSteps({status:'denied'});render()});assert.equal(await a.locator('[data-account-field="assigned_to"]').inputValue(),people[1]);
   await a.locator('#shared-form button[type="submit"]').click();await a.locator('[data-nx="account-complete-shared"]').waitFor();assert(await a.locator('[data-nx="account-complete-shared"]').isDisabled());
   assert.equal(await b.locator('[data-nx="account-refresh-shared"]').count(),0);await b.bringToFront();await b.evaluate(()=>document.dispatchEvent(new Event('visibilitychange')));await b.locator('[data-nx="account-complete-shared"]').waitFor();await b.locator('[data-nx="account-complete-shared"]').click();await b.waitForFunction(()=>document.querySelector('[data-nx="account-complete-shared"]')?.classList.contains('checked'));
   assert.equal(await a.locator('[data-nx="account-react"]').count(),0);await a.bringToFront();await a.evaluate(()=>document.dispatchEvent(new Event('visibilitychange')));await a.waitForFunction(()=>document.querySelector('[data-nx="account-complete-shared"]')?.classList.contains('checked'));assert((await a.locator('#view').innerText()).includes('1 / 1'));
   await a.screenshot({path:'next-shots/shared-goal-ru.png',fullPage:true});
-  await c.locator('.nav-item[data-nav="plan"]').click();await c.locator('[data-nx="account-join"]').click();await c.locator('[data-nx="account-apple"]').click();await c.locator('#shared-form').waitFor();await c.locator('[data-account-field="token"]').fill(inviteText);await c.locator('[data-account-field="name"]').fill('Другой');await c.locator('#shared-form button[type="submit"]').click();await c.getByRole('alert').waitFor();assert((await c.getByRole('alert').innerText()).includes('новое'));assert.equal(await c.getByRole('heading',{name:'Тренируемся вместе'}).count(),0);
+  await c.locator('.nav-item[data-nav="plan"]').click();await c.locator('[data-nx="account-shared"]').click();await c.locator('[data-nx="account-apple"]').click();await c.locator('[data-nx="account-join"]').waitFor();await c.locator('[data-nx="account-join"]').click();await c.locator('#shared-form').waitFor();await c.locator('[data-account-field="token"]').fill(inviteText);await c.locator('[data-account-field="name"]').fill('Другой');await c.locator('#shared-form button[type="submit"]').click();await c.getByRole('alert').waitFor();assert((await c.getByRole('alert').innerText()).includes('новое'));assert.equal(await c.getByRole('heading',{name:'Тренируемся вместе'}).count(),0);
   assert.deepEqual(sharedErrors,[]);for(const page of team)await page.close();
   console.log('PASS: shared goal creation, Apple return path, native share, join from message, assignee permissions, shared completion, reused invitation and form focus');
 

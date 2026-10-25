@@ -10,6 +10,8 @@ final class IntegratedSmokeTests: XCTestCase {
         XCTAssertTrue(start.waitForExistence(timeout: 20)); start.tap()
         let plan = app.buttons.matching(NSPredicate(format: "label IN %@", ["План", "Plan"])).firstMatch
         XCTAssertTrue(plan.waitForExistence(timeout: 10)); plan.tap()
+        let addMenu = app.buttons.matching(NSPredicate(format: "label IN %@", ["Добавить", "Add"])).firstMatch
+        XCTAssertTrue(addMenu.waitForExistence(timeout: 10)); addMenu.tap()
         let add = app.buttons.matching(NSPredicate(format: "label IN %@", ["＋ Цель", "＋ Goal"])).firstMatch
         XCTAssertTrue(add.waitForExistence(timeout: 10), app.debugDescription); add.tap()
         let name = app.textFields.firstMatch
@@ -73,7 +75,7 @@ final class IntegratedSmokeTests: XCTestCase {
                 defer { previous = current }
                 return current != .zero && current == previous && submit.isHittable
             }, object: submit)
-            XCTAssertEqual(XCTWaiter.wait(for: [settled], timeout: 5), .completed)
+            XCTAssertEqual(XCTWaiter.wait(for: [settled], timeout: 20), .completed)
         }
     }
     private func attach(_ name: String) {

@@ -21,3 +21,12 @@ assert.throws(()=>merge(base,base,{...base,schemaVersion:2}));
 assert.throws(()=>project({...local,habits:[{id:'h1',name:'A'},{id:'h1',name:'B'}]}));
 assert.throws(()=>new Journal({getItem:()=>null,setItem:()=>{throw Error('Quota')}}).capture('guest',local));
 console.log('PASS: independent edits, delete/edit conflict, field merge, health exclusion, account isolation, in-flight edits, invalid schema and quota failure');
+
+const quantity={id:'pages',name:'Read',type:'quantity',targetValue:300,currentValue:60,unit:'pages',steps:[],entries:[{id:'q1',date:'2026-10-26',amount:60}]};
+const qcloud=project({...local,goals:[quantity]});const qrestored=apply(local,qcloud);
+assert.deepEqual(qrestored.goals[0],quantity);assert(!JSON.stringify(qcloud).includes('dailySteps'));
+const qb=cp(qcloud),ql=cp(qcloud),qr=cp(qcloud);ql.goals[0].currentValue=80;ql.goals[0].entries.push({id:'q2',date:'2026-10-26',amount:20});qr.goals[0].name='Changed title';
+const qm=merge(qb,ql,qr);assert.equal(qm.conflicts.length,0);assert.equal(qm.state.goals[0].currentValue,80);assert.equal(qm.state.goals[0].name,'Changed title');
+qr.goals[0].currentValue=90;qr.goals[0].entries.push({id:'q3',date:'2026-10-26',amount:30});assert(merge(qb,ql,qr).conflicts.length>0,'concurrent amounts require explicit resolution');
+assert.throws(()=>project({...local,goals:[{...quantity,targetValue:0}]}));
+console.log('PASS: quantity goal cross-device payload, history preservation, disjoint edit merge and simultaneous contribution conflict');
