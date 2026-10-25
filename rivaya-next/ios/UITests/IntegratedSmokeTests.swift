@@ -9,7 +9,7 @@ final class IntegratedSmokeTests: XCTestCase {
         let start = app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Начать")).firstMatch
         XCTAssertTrue(start.waitForExistence(timeout: 20)); start.tap()
         let plan = app.buttons.matching(NSPredicate(format: "label IN %@", ["План", "Plan"])).firstMatch
-        XCTAssertTrue(plan.waitForExistence(timeout: 10)); plan.tap()
+        XCTAssertTrue(plan.waitForExistence(timeout: 10)); tapReady(plan)
         let addMenu = app.buttons.matching(NSPredicate(format: "label IN %@", ["Добавить", "Add"])).firstMatch
         XCTAssertTrue(addMenu.waitForExistence(timeout: 10)); addMenu.tap()
         let add = app.buttons.matching(NSPredicate(format: "label IN %@", ["＋ Цель", "＋ Goal"])).firstMatch
@@ -31,7 +31,7 @@ final class IntegratedSmokeTests: XCTestCase {
         XCTAssertTrue(step.waitForExistence(timeout: 10), app.debugDescription)
         reveal(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "271828")).firstMatch, in: app)
         attach("Goal stages")
-        app.terminate(); app.launch(); XCTAssertTrue(plan.waitForExistence(timeout: 10)); plan.tap()
+        app.terminate(); app.launch(); XCTAssertTrue(plan.waitForExistence(timeout: 10)); tapReady(plan)
         XCTAssertTrue(card.waitForExistence(timeout: 10), app.debugDescription); card.tap()
         reveal(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "271828")).firstMatch, in: app)
         attach("Persisted stages")
@@ -47,10 +47,17 @@ final class IntegratedSmokeTests: XCTestCase {
         XCTAssertEqual(app.secureTextFields.count, 0)
         attach("Optional Apple sign in")
         let guest = app.buttons.matching(NSPredicate(format: "label IN %@", ["Продолжить без входа", "Continue without signing in"])).firstMatch
-        XCTAssertTrue(guest.waitForExistence(timeout: 5)); guest.tap(); plan.tap()
+        XCTAssertTrue(guest.waitForExistence(timeout: 5)); guest.tap(); tapReady(plan)
         XCTAssertTrue(card.waitForExistence(timeout: 10), app.debugDescription); card.tap()
         reveal(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "271828")).firstMatch, in: app)
         #endif
+    }
+    private func tapReady(_ element: XCUIElement) {
+        let ready = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            element.exists && element.isHittable
+        }, object: element)
+        XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 20), .completed)
+        element.tap()
     }
     private func reveal(_ element: XCUIElement, in app: XCUIApplication) {
         for _ in 0..<5 {
