@@ -11,7 +11,7 @@ const defaultState = {
     quietStart:'23:00',
     quietEnd:'08:00'
   },
-  profile:{name:'',avatarData:'',onboardingDone:false},
+  profile:{name:'',avatarData:'',onboardingDone:false,homeLayout:{mode:'simple'}},
   goalSnapshots:{},
   activity:{
     access:'denied',
@@ -98,6 +98,8 @@ function loadState(){
     merged.activity.dailySteps={...(s.activity?.dailySteps||{})};
     merged.reminders={...defaultState.reminders,...(s.reminders||{})};
     merged.profile={...defaultState.profile,...(s.profile||{})};
+    // Preserve the detailed home for installations created before configurable homes.
+    if(!s.profile?.homeLayout)merged.profile.homeLayout={mode:'expanded'};
     merged.goalSnapshots={...(s.goalSnapshots||{})};
     if(!Array.isArray(merged.reminders.times)) merged.reminders.times=clone(defaultState.reminders.times);
     merged.reminders.times=merged.reminders.times.filter(Boolean).slice(0,3);
@@ -121,6 +123,7 @@ function loadState(){
           copy.contributions=Array.isArray(copy.contributions)?copy.contributions:[];
         }
       }
+      if(copy.type==='quantity')syncGoalStatus(copy);
       copy.reminderEnabled=!!copy.reminderEnabled;
       copy.reminderTime=copy.reminderTime||'';
       return copy;
@@ -195,17 +198,19 @@ function esc(s=''){return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt
 function daysLeft(date){if(!date)return 'Без срока';const d=Math.ceil((new Date(date+'T12:00:00')-new Date())/86400000);return d<0?'Срок прошёл':d===0?'Сегодня':`${d} дн. до срока`}
 function fmtMoney(n){return new Intl.NumberFormat('ru-RU',{maximumFractionDigits:0}).format(Math.max(0,Math.round(Number(n)||0)))+' ₽'}
 function goalPct(g){
+  if(g.type==='quantity')return Math.min(100,Math.floor((Number(g.currentValue)||0)/Math.max(0.000001,Number(g.targetValue)||1)*100));
   if(g.type==='money')return Math.min(100,Math.round((Number(g.currentAmount)||0)/Math.max(1,Number(g.targetAmount)||1)*100));
   return g.steps.length?Math.round(g.steps.filter(s=>s.done).length/g.steps.length*100):0;
 }
 function goalIsComplete(g){
   if(g.status==='completed')return true;
   if(g.status==='active')return false;
+  if(g.type==='quantity')return g.targetValue>0&&g.currentValue>=g.targetValue;
   if(g.type==='money')return (Number(g.targetAmount)||0)>0 && (Number(g.currentAmount)||0)>=(Number(g.targetAmount)||0);
   return g.steps.length>0 && g.steps.every(s=>s.done);
 }
 function syncGoalStatus(g){
-  const complete=g.type==='money'
+  const complete=g.type==='quantity' ? g.targetValue>0&&g.currentValue>=g.targetValue : g.type==='money'
     ? ((Number(g.targetAmount)||0)>0 && (Number(g.currentAmount)||0)>=(Number(g.targetAmount)||0))
     : (g.steps.length>0 && g.steps.every(s=>s.done));
   if(complete){g.status='completed';g.completedAt=g.completedAt||todayKey()}
@@ -244,8 +249,8 @@ function eachDate(start,end,fn){
 function weekKey(d){
   const x=startOfDay(d);const delta=(x.getDay()+6)%7;x.setDate(x.getDate()-delta);return dateKey(x);
 }
-function habitStats(h,days){
-  const today=startOfDay(new Date());
+function habitStats(h,days,ending=new Date()){
+  const today=startOfDay(ending);
   const ended=habitEndDate(h);
   const end=ended && ended<today?ended:today;
   const periodStart=new Date(today);periodStart.setDate(today.getDate()-Math.max(1,days)+1);
@@ -261,7 +266,7 @@ function habitStats(h,days){
       const k=weekKey(d);
       const item=weeks.get(k)||{days:0,done:0};
       item.days++;
-      if(doneOnDate(h.id,d))item.done++;
+      item.done+=window.RivayaNextCore?.dayCredit(state,h,dateKey(d))??(doneOnDate(h.id,d)?1:0);
       weeks.set(k,item);
     });
     for(const item of weeks.values()){
@@ -273,7 +278,7 @@ function habitStats(h,days){
     eachDate(start,end,d=>{
       if(!habitScheduledOnDate(h,d))return;
       target++;
-      if(doneOnDate(h.id,d))done++;
+      done+=window.RivayaNextCore?.dayCredit(state,h,dateKey(d))??(doneOnDate(h.id,d)?1:0);
     });
   }
   return {p:target?Math.min(100,Math.round(done/target*100)):0,done,target};
@@ -610,6 +615,7 @@ function restoreBackupText(text){
   if(!incoming.habits.every(validId)||!incoming.goals.every(g=>validId(g)&&Array.isArray(g.steps)&&g.steps.every(validId)))throw new Error('Повреждены записи');
   if(new Set(incoming.habits.map(h=>h.id)).size!==incoming.habits.length||new Set(incoming.goals.map(g=>g.id)).size!==incoming.goals.length)throw new Error('Повторяющиеся записи');
   if(!Object.values(incoming.checks).every(v=>typeof v==='boolean'))throw new Error('Повреждена история');
+  window.RivayaNextCore?.validation(incoming);
   const previous=localStorage.getItem(STORAGE_KEY),previousState=state;
   try{
     // Retain a recovery point before replacing live data.

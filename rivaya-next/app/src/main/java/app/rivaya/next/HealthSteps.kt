@@ -61,7 +61,7 @@ class HealthSteps(private val activity: ComponentActivity, private val publish: 
                 val today = LocalDate.now(zone)
                 val daily = JSONObject()
                 val history = JSONArray()
-                for (offset in 6 downTo 0) {
+                for (offset in 29 downTo 0) {
                     val day = today.minusDays(offset.toLong())
                     val start = day.atStartOfDay(zone).toInstant()
                     val end = if (offset == 0) java.time.Instant.now() else day.plusDays(1).atStartOfDay(zone).toInstant()

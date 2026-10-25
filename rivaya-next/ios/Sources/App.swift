@@ -23,6 +23,7 @@ final class RivayaController: UIViewController, WKScriptMessageHandler, WKNaviga
     private let health = HKHealthStore()
     private var refreshing = false
     private let reminders = ReminderService()
+    private let appleSignIn = AppleSignIn()
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = UIColor(red: 0.03, green: 0.04, blue: 0.08, alpha: 1)
@@ -35,6 +36,10 @@ final class RivayaController: UIViewController, WKScriptMessageHandler, WKNaviga
         let bridge = """
         window.RIVAYA_IOS = true;
         window.VektorNative = {
+          shareText: text => window.webkit.messageHandlers.rivaya.postMessage({action:'shareText',text}),
+          backendRequest: text => window.webkit.messageHandlers.rivaya.postMessage({action:'backendRequest',text}),
+          secureSession: text => window.webkit.messageHandlers.rivaya.postMessage({action:'secureSession',text}),
+          signInWithApple: text => window.webkit.messageHandlers.rivaya.postMessage({action:'signInWithApple',text}),
           clearNativeData: () => window.webkit.messageHandlers.rivaya.postMessage({action:'clearNativeData'}),
           pickAvatar: () => window.webkit.messageHandlers.rivaya.postMessage({action:'pickAvatar'}),
           exportBackupFile: text => window.webkit.messageHandlers.rivaya.postMessage({action:'exportBackupFile',text}),
@@ -69,6 +74,8 @@ final class RivayaController: UIViewController, WKScriptMessageHandler, WKNaviga
         web.isOpaque = false
         web.backgroundColor = view.backgroundColor
         web.scrollView.backgroundColor = view.backgroundColor
+        // Stop at the last content block instead of exposing empty WebView space.
+        web.scrollView.bounces = false
         web.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(web)
         NSLayoutConstraint.activate([
@@ -86,6 +93,23 @@ final class RivayaController: UIViewController, WKScriptMessageHandler, WKNaviga
         guard message.frameInfo.isMainFrame, message.frameInfo.request.url?.isFileURL == true,
               let body = message.body as? [String: Any], let action = body["action"] as? String else { return }
         switch action {
+        case "shareText":
+            if let text=body["text"] as? String, text.count<=4000, presentedViewController == nil {
+                let controller=UIActivityViewController(activityItems:[text],applicationActivities:nil)
+                controller.popoverPresentationController?.sourceView=view
+                controller.popoverPresentationController?.sourceRect=CGRect(x:view.bounds.midX,y:view.bounds.midY,width:1,height:1)
+                present(controller,animated:true)
+            }
+        case "backendRequest":
+            if let text = body["text"] as? String { BackendTransport.request(text) { [weak self] result in self?.callback("rivayaOnBackendResponse",result) } }
+        case "secureSession":
+            if let text = body["text"] as? String { callback("rivayaOnSecureSession", SessionVault.request(text)) }
+        case "signInWithApple":
+            if let text = body["text"] as? String {
+                appleSignIn.start(text, window: view.window) { [weak self] result in
+                    self?.callback("rivayaOnAppleSignIn", result)
+                }
+            }
         case "debug":
             #if DEBUG
             if let text = body["text"] as? String { NSLog("RIVAYA diagnostic: %@", text) }
@@ -219,7 +243,7 @@ final class RivayaController: UIViewController, WKScriptMessageHandler, WKNaviga
         }
         refreshing = true
         let calendar = Calendar.current
-        let start = calendar.date(byAdding: .day, value: -6, to: calendar.startOfDay(for: Date()))!
+        let start = calendar.date(byAdding: .day, value: -29, to: calendar.startOfDay(for: Date()))!
         let predicate = HKQuery.predicateForSamples(withStart: start, end: Date())
         let query = HKStatisticsCollectionQuery(quantityType: type, quantitySamplePredicate: predicate, options: .cumulativeSum, anchorDate: start, intervalComponents: DateComponents(day: 1))
         query.initialResultsHandler = { [weak self] _, result, error in

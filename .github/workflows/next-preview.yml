@@ -1,0 +1,34 @@
+name: RIVAYA 4.1 integrated preview
+on:
+  push:
+    branches: ['feature/rivaya-4.1']
+permissions:
+  contents: read
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node rivaya-next/tests/state-check.cjs && node rivaya-next/tests/next-state-check.cjs && node rivaya-next/tests/accounts-check.cjs && node rivaya-next/tests/sync-check.cjs && node rivaya-next/tests/sync-transport-check.cjs
+      - run: node rivaya-next/tests/backend-fetch-check.cjs
+      - run: node rivaya-next/tests/shared-client-check.cjs
+      - run: node rivaya-next/tests/apple-signin-check.cjs && node rivaya-next/tests/apple-revoke-check.cjs
+      - run: npm install --prefix "$RUNNER_TEMP/rivaya-sql" @electric-sql/pglite@0.5.11
+      - run: node rivaya-next/tests/shared-sql-check.cjs
+        env:
+          NODE_PATH: ${{ runner.temp }}/rivaya-sql/node_modules
+      - run: |
+          npm install --prefix "$RUNNER_TEMP/rivaya-web" playwright@1.62.1
+          node "$RUNNER_TEMP/rivaya-web/node_modules/playwright/cli.js" install --with-deps chromium
+      - run: node rivaya-next/tests/next-browser.cjs
+        env:
+          NODE_PATH: ${{ runner.temp }}/rivaya-web/node_modules
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: RIVAYA-4.1-preview
+          path: next-shots

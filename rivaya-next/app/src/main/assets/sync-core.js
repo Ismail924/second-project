@@ -18,6 +18,7 @@
         ids.add(item.id);
       }
     }
+    for(const g of state.goals)if(g.type==='quantity'&&(!Number.isFinite(g.targetValue)||g.targetValue<=0||g.targetValue>1e9||!Number.isFinite(g.currentValue)||g.currentValue<0||g.currentValue>1e9||typeof g.unit!=='string'||!g.unit.trim()||g.unit.length>30||!Array.isArray(g.entries)||g.entries.some(e=>!plain(e)||typeof e.id!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(e.date)||!Number.isFinite(e.amount)||e.amount<=0||e.amount>1e9)))throw Error('Invalid quantity goal');
     if(!Object.values(state.checks).every(x=>typeof x==='boolean'))throw Error('Invalid checks');
     return state;
   }
