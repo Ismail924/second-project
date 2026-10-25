@@ -64,7 +64,7 @@ shared:()=>(window.RivayaAccountUI?.friendsEntry?.(true)||'')};
   }
   function plan(){
     const tasks=state.goals.filter(g=>g.type==='task'),gs=state.goals.filter(g=>g.type!=='task');
-    const active=list=>list.filter(g=>!goalIsComplete(g)),finished=(planFilter==='habits'?[]:state.goals.filter(g=>goalIsComplete(g)));
+    const active=list=>list.filter(g=>!goalIsComplete(g)),finished=(planFilter==='habits'?[]:state.goals.filter(g=>goalIsComplete(g)&&(planFilter!=='goals'||g.type!=='task')));
     return `<div class="nx-plan"><div class="nx-between">${head(t('План','Plan'))}${button('＋','home-add',`aria-label="${t('Добавить','Add')}"`,true)}</div>`+
       `<div class="nx-plan-tabs">${[['all',t('Всё','All')],['habits',t('Привычки','Habits')],['goals',t('Цели','Goals')]].map(([v,l])=>button(l,'plan-filter',`data-filter="${v}" aria-pressed="${planFilter===v}"`)).join('')}</div>`+
       (planFilter==='all'&&active(tasks).length?panel(t('Дела','Tasks'),active(tasks).map(taskRow).join('')):'')+

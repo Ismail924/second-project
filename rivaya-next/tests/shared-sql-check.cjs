@@ -24,8 +24,10 @@ const sessions={ [A]:'aaaaaaaa-0000-0000-0000-aaaaaaaaaaaa',[B]:'bbbbbbbb-0000-0
  await assert.rejects(()=>act('set_step',{goal_id:g.id,step_id:step.id,expected_revision:1,done:false}));
  await assert.rejects(()=>db.query('update public.rivaya_shared_steps set assigned_to=$1 where id=$2',[A,step.id]));
  await act('react',{goal_id:g.id,reaction:'support'});await assert.rejects(()=>act('react',{goal_id:g.id,reaction:'free text'}));
- const payload=JSON.stringify({schemaVersion:1,goals:[],habits:[],checks:{}});
+ const quantity={id:'pages',name:'Read',type:'quantity',targetValue:300,currentValue:80,unit:'pages',steps:[],entries:[{id:'initial',date:'2026-10-26',amount:60},{id:'added',date:'2026-10-26',amount:20}]};
+ const payload=JSON.stringify({schemaVersion:1,goals:[quantity],habits:[],checks:{}});
  await db.query('select public.rivaya_save(0,$1::jsonb)',[payload]);
+ assert.deepEqual((await db.query('select payload from public.rivaya_documents')).rows[0].payload.goals[0],quantity,'quantity goal and entries roundtrip through authenticated save');
  await as(A);assert.equal((await db.query('select * from public.rivaya_documents')).rows.length,0,'personal documents isolated');
  await as(B);await act('leave',{goal_id:g.id});assert.deepEqual(await act('list'),[]);
  await assert.rejects(()=>act('set_step',{goal_id:g.id,step_id:step.id,expected_revision:2,done:false}));
