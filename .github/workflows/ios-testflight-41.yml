@@ -47,7 +47,7 @@ jobs:
         working-directory: rivaya-next/ios
         run: |
           DEVICE=$(xcrun simctl list devices available --json | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next(v["udid"] for k,vs in d["devices"].items() if "iOS" in k for v in vs if "iPhone" in v["name"]))')
-          xcodebuild test -project Rivaya.xcodeproj -scheme Rivaya -destination "platform=iOS Simulator,id=$DEVICE" -derivedDataPath build -resultBundlePath build/CloudSmoke.xcresult CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- OTHER_SWIFT_FLAGS='$(inherited) -D RIVAYA_CLOUD_PREVIEW'
+          xcodebuild test -parallel-testing-enabled NO -project Rivaya.xcodeproj -scheme Rivaya -destination "platform=iOS Simulator,id=$DEVICE" -derivedDataPath build -resultBundlePath build/CloudSmoke.xcresult CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY=- OTHER_SWIFT_FLAGS='$(inherited) -D RIVAYA_CLOUD_PREVIEW'
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.3'

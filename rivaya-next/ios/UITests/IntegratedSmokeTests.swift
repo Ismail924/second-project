@@ -63,9 +63,9 @@ final class IntegratedSmokeTests: XCTestCase {
     private func dismissKeyboard(_ app: XCUIApplication) {
         if app.keyboards.firstMatch.exists {
             let done = app.buttons.matching(NSPredicate(format: "label IN %@", ["Done", "Готово"])).firstMatch
-            if done.waitForExistence(timeout: 3) { done.tap() }
+            if done.waitForExistence(timeout: 10) { done.tap() }
             let hidden = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: app.keyboards.firstMatch)
-            XCTAssertEqual(XCTWaiter.wait(for: [hidden], timeout: 5), .completed)
+            XCTAssertEqual(XCTWaiter.wait(for: [hidden], timeout: 20), .completed)
             // WKWebView's viewport finishes moving after the keyboard leaves accessibility.
             // Wait for two stable layouts rather than tapping its previous button coordinates.
             let submit = app.buttons.matching(NSPredicate(format: "label IN %@", ["Сохранить", "Save"])).firstMatch

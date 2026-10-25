@@ -43,3 +43,5 @@ html.rv-next-ui .brand{font-size:19px!important;letter-spacing:.19em!important}
 .nx-home-block[data-home-block=habits]>.nx-panel{background:transparent!important;border:0;padding:0!important}.nx-home .nx-habit-row{padding:14px;margin:10px 0;border:1px solid #2c3b51;border-radius:17px;background:linear-gradient(120deg,#172236,#101b2c)}.nx-home .nx-habit-row .nx-check{flex-basis:40px;width:40px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;color:#b29afb;border-color:#5c4c81;background:#28213a}.nx-home .nx-habit-row .nx-check.checked{background:#4ce2b5;color:#062c22;border-color:transparent}.nx-habit-row .nx-check svg{width:22px;height:22px}.nx-home .nx-habit-row .nx-button{padding:9px;min-width:48px;background:transparent;color:#7aebca;border-color:#3f9c83}.nx-home .nx-habit-row .nx-progress{margin:8px 0 0}.nx-home .nx-habit-row .nx-progress i{background:linear-gradient(90deg,#8d73ed,#b39afa)}
 
 .nx-report-bars.month .nx-report-bar small{white-space:nowrap;overflow:visible;width:24px;position:relative;left:50%;transform:translateX(-50%);font-size:9px}
+
+.nx-home.simple .nx-row.nx-habit-row{padding:14px}
