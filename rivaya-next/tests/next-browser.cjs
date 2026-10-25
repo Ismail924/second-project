@@ -63,6 +63,26 @@ const server=http.createServer((req,res)=>{const file=path.resolve(root,'.'+(req
   for(const width of [320,390,430,768]){await review.setViewportSize({width,height:844});assert(await review.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'progress width '+width)}
   await review.setViewportSize({width:390,height:844});await review.waitForFunction(()=>!document.getElementById('toast').classList.contains('show'));await review.screenshot({path:'next-shots/progress-redesign-ru.png',fullPage:true,style:'.rv-bottom-nav.bottom-nav,.toast{display:none!important}'});
   await review.screenshot({path:'next-shots/progress-overview-ru.png'});
+  // Step history uses the actual native daily map, not fabricated missing zeroes.
+  await review.evaluate(()=>{const daily={};for(let i=0;i<30;i++){const d=new Date();d.setDate(d.getDate()-i);daily[dateKey(d)]=(30-i)*100}state.activity.dailySteps=daily;state.activity.steps=3000;render()});
+  assert((await review.locator('.nx-summary-card').last().innerText()).includes('Шаги'));
+  await review.locator('.nx-step-symbol').click();
+  assert.equal(await review.locator('.nx-step-bar').count(),7);
+  assert.equal((await review.locator('.nx-step-kpis b').first().innerText()).replace(/\s/g,''),'18900');
+  await review.locator('[data-nx="step-period"][data-period="30"]').click();
+  assert.equal(await review.locator('.nx-step-bar').count(),30);
+  assert.equal((await review.locator('.nx-step-kpis b').first().innerText()).replace(/\s/g,''),'46500');
+  assert.equal((await review.locator('.nx-step-kpis b').nth(1).innerText()).replace(/\s/g,''),'1550');
+  await review.locator('.nx-step-bar').first().click();assert((await review.locator('.nx-step-selected').innerText()).includes('100'));
+  for(const width of [320,390,430]){await review.setViewportSize({width,height:844});assert(await review.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'activity width '+width)}
+  await review.setViewportSize({width:390,height:844});await review.evaluate(()=>scrollTo(0,0));await review.screenshot({path:'next-shots/steps-month-ru.png',fullPage:true});
+  await review.locator('[data-nx="step-period"][data-period="7"]').click();await review.screenshot({path:'next-shots/steps-week-ru.png',fullPage:true});
+  assert.equal(await review.locator('[data-nx="health-refresh"]').count(),0);
+  await review.evaluate(()=>{state.activity.dailySteps={[todayKey()]:0};state.activity.steps=0;render()});
+  assert.equal(await review.locator('.nx-step-bar.unknown').count(),6);assert.equal(await review.locator('.nx-step-kpis b').nth(1).innerText(),'0');
+  await review.evaluate(()=>{state.activity.access='denied';render()});assert.equal(await review.locator('.nx-step-bar.unknown').count(),7);assert.equal(await review.locator('.nx-step-kpis b').first().innerText(),'—');
+  console.log('PASS: steps navigation, week/month totals, daily selection, missing vs zero data, permissions and mobile widths');
+
   for(const v of ['today','plan','progress','profile']){
    await review.locator('.nav-item[data-nav="'+v+'"]').click();await review.evaluate(()=>scrollTo(0,document.documentElement.scrollHeight));
    const geometry=await review.evaluate(()=>{const screen=document.querySelector('.nx-screen').getBoundingClientRect(),nav=document.querySelector('.rv-bottom-nav').getBoundingClientRect();return{gap:nav.top-screen.bottom,overflow:document.documentElement.scrollWidth-innerWidth}});
@@ -180,8 +200,8 @@ const server=http.createServer((req,res)=>{const file=path.resolve(root,'.'+(req
   await a.locator('[data-nx="account-shared"]').click();await a.locator('[data-nx="account-open-shared"]').waitFor();await a.locator('[data-nx="account-open-shared"]').click();await a.locator('[data-nx="account-new-shared-step"]').click();await a.locator('[data-account-field="title"]').fill('Сделать 20 отжиманий');await a.locator('[data-account-field="assigned_to"]').selectOption(people[1]);
   await a.evaluate(()=>{window.vektorOnNativeSteps({status:'denied'});render()});assert.equal(await a.locator('[data-account-field="assigned_to"]').inputValue(),people[1]);
   await a.locator('#shared-form button[type="submit"]').click();await a.locator('[data-nx="account-complete-shared"]').waitFor();assert(await a.locator('[data-nx="account-complete-shared"]').isDisabled());
-  await b.locator('[data-nx="account-refresh-shared"]').click();await b.locator('[data-nx="account-complete-shared"]').waitFor();await b.locator('[data-nx="account-complete-shared"]').click();await b.waitForFunction(()=>document.querySelector('[data-nx="account-complete-shared"]')?.classList.contains('checked'));
-  await a.locator('[data-nx="account-refresh-shared"]').click();await a.waitForFunction(()=>document.querySelector('[data-nx="account-complete-shared"]')?.classList.contains('checked'));assert((await a.locator('#view').innerText()).includes('1 / 1'));
+  assert.equal(await b.locator('[data-nx="account-refresh-shared"]').count(),0);await b.bringToFront();await b.evaluate(()=>document.dispatchEvent(new Event('visibilitychange')));await b.locator('[data-nx="account-complete-shared"]').waitFor();await b.locator('[data-nx="account-complete-shared"]').click();await b.waitForFunction(()=>document.querySelector('[data-nx="account-complete-shared"]')?.classList.contains('checked'));
+  assert.equal(await a.locator('[data-nx="account-react"]').count(),0);await a.bringToFront();await a.evaluate(()=>document.dispatchEvent(new Event('visibilitychange')));await a.waitForFunction(()=>document.querySelector('[data-nx="account-complete-shared"]')?.classList.contains('checked'));assert((await a.locator('#view').innerText()).includes('1 / 1'));
   await a.screenshot({path:'next-shots/shared-goal-ru.png',fullPage:true});
   await c.locator('.nav-item[data-nav="plan"]').click();await c.locator('[data-nx="account-join"]').click();await c.locator('[data-nx="account-apple"]').click();await c.locator('#shared-form').waitFor();await c.locator('[data-account-field="token"]').fill(inviteText);await c.locator('[data-account-field="name"]').fill('Другой');await c.locator('#shared-form button[type="submit"]').click();await c.getByRole('alert').waitFor();assert((await c.getByRole('alert').innerText()).includes('новое'));assert.equal(await c.getByRole('heading',{name:'Тренируемся вместе'}).count(),0);
   assert.deepEqual(sharedErrors,[]);for(const page of team)await page.close();

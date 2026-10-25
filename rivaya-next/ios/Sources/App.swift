@@ -243,7 +243,7 @@ final class RivayaController: UIViewController, WKScriptMessageHandler, WKNaviga
         }
         refreshing = true
         let calendar = Calendar.current
-        let start = calendar.date(byAdding: .day, value: -6, to: calendar.startOfDay(for: Date()))!
+        let start = calendar.date(byAdding: .day, value: -29, to: calendar.startOfDay(for: Date()))!
         let predicate = HKQuery.predicateForSamples(withStart: start, end: Date())
         let query = HKStatisticsCollectionQuery(quantityType: type, quantitySamplePredicate: predicate, options: .cumulativeSum, anchorDate: start, intervalComponents: DateComponents(day: 1))
         query.initialResultsHandler = { [weak self] _, result, error in
