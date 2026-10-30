@@ -80,33 +80,46 @@ end
 build_id = build.fetch('id')
 puts "Apple confirms RIVAYA #{VERSION} build #{BUILD_NUMBER}, processing VALID."
 
+# Apple's build-read API may report VALID before the internal-beta-group write
+# API can resolve that build. Retry the exact build ID without uploading again.
 unless group_build_ids.include?(build_id)
   endpoints = [
     ["/v1/betaGroups/#{INTERNAL_GROUP_ID}/relationships/builds", { data: [{ type: 'builds', id: build_id }] }],
     ["/v1/builds/#{build_id}/relationships/betaGroups", { data: [{ type: 'betaGroups', id: INTERNAL_GROUP_ID }] }]
   ]
+  deadline = Time.now + 1050
   linked = false
-  endpoints.each do |path, body|
-    3.times do |attempt|
-      code, res = api(:post, path, body)
-      if (200..299).cover?(code) || group_build_ids.include?(build_id)
+  attempts = 0
+  until linked || Time.now >= deadline
+    attempts += 1
+    endpoints.each do |path, body|
+      code, result = api(:post, path, body)
+      if (200..299).cover?(code)
         linked = true
         break
       end
-      reason = Array(res['errors']).map { |e| e['detail'] || e['title'] }.compact.join('; ')
-      puts "Group linking attempt #{attempt+1}: HTTP #{code} #{reason[0, 160]}"
-      sleep 15 if attempt < 2
+      if [404, 409, 422].include?(code)
+        message = Array(result['errors']).map { |e| e['detail'] || e['title'] }.compact.join('; ')
+        puts "Apple group association attempt #{attempts}: HTTP #{code} #{message[0,120]}"
+      else
+        require_ok!(code, result, 'Associate TestFlight build with internal testers')
+      end
+      if group_build_ids.include?(build_id)
+        linked = true
+        break
+      end
     end
     break if linked
+    sleep 30
   end
-  abort('Apple did not accept association with the internal group') unless linked
+  abort('Apple processing finished, but internal TestFlight group association is still unavailable; no public submission was attempted.') unless linked
 end
 
-6.times do
+12.times do
   if group_build_ids.include?(build_id)
     puts "SUCCESS: RIVAYA #{VERSION} (#{BUILD_NUMBER}) is available to the personal internal TestFlight group."
     exit 0
   end
   sleep 15
 end
-abort('Group assignment not confirmed by Apple; no App Store submission allowed.')
+abort('Apple group assignment has not propagated; build remains uploaded but TestFlight access is unconfirmed.')
