@@ -10,7 +10,7 @@ require 'base64'
 require 'jwt'
 require 'digest'
 APP_ID='6823716293'
-FOLDER=File.expand_path('../../../../appstore-shots-442',__dir__)
+FOLDER=File.expand_path('../../../appstore-shots-442',__dir__)
 KEY=OpenSSL::PKey::EC.new(Base64.strict_decode64(ENV.fetch('ASC_KEY_P8_BASE64').delete("\r\n")))
 def asc(method,path,body=nil)
   uri=URI("https://api.appstoreconnect.apple.com#{path}")
