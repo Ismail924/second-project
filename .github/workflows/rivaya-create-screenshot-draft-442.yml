@@ -1,0 +1,27 @@
+name: RIVAYA create next screenshot-only App Store draft
+on:
+  push:
+    branches: ['feature/rivaya-widget-polish-441']
+    paths: ['.github/workflows/rivaya-create-screenshot-draft-442.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  draft:
+    runs-on: ubuntu-latest
+    environment: app-store
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+          working-directory: rivaya-next/ios
+      - name: Create 4.4.2 draft without affecting live 4.4.1
+        working-directory: rivaya-next/ios
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+        run: bundle exec ruby scripts/create-screenshot-draft-442.rb
