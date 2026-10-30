@@ -31,13 +31,13 @@ def call_api(method, path, data = nil)
   result
 end
 
-versions = call_api(:get, "/v1/appStoreVersions?#{URI.encode_www_form([['filter[app]',APP_ID],['filter[platform]','IOS'],['limit','100']])}")
+versions = call_api(:get, "/v1/apps/#{APP_ID}/appStoreVersions?#{URI.encode_www_form([['filter[platform]','IOS'],['limit','100']])}")
 match = Array(versions['data']).find { |v| v.dig('attributes','versionString') == VERSION }
 abort('Version 4.3.1 not found in App Store Connect') unless match
 state = match.dig('attributes','appStoreState')
 abort("App Store version cannot be edited in state #{state}") if %w[READY_FOR_SALE PENDING_DEVELOPER_RELEASE WAITING_FOR_REVIEW IN_REVIEW].include?(state)
 version_id = match.fetch('id')
-result = call_api(:get, "/v1/appStoreVersionLocalizations?#{URI.encode_www_form([['filter[appStoreVersion]',version_id],['limit','200']])}")
+result = call_api(:get, "/v1/appStoreVersions/#{version_id}/appStoreVersionLocalizations?limit=200")
 localizations = Array(result['data'])
 abort('No App Store localizations exist; metadata must be prepared') if localizations.empty?
 localizations.each do |item|
