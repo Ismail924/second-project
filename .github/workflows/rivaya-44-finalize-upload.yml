@@ -1,0 +1,29 @@
+name: RIVAYA 4.4 finish existing Apple TestFlight upload
+on:
+  push:
+    branches: ['feature/rivaya-widgetkit-4.4']
+    paths:
+      - '.github/workflows/rivaya-44-finalize-upload.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: app-store
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+          working-directory: rivaya-next/ios
+      - name: Verify Apple processed the already-uploaded WidgetKit build, then add internal testers
+        working-directory: rivaya-next/ios
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+          RIVAYA_BUILD_NUMBER: '44014'
+        run: bundle exec ruby scripts/finalize-widget-testflight.rb
