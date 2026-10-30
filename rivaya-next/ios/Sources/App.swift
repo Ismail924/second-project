@@ -2,6 +2,11 @@ import UIKit
 import WebKit
 import HealthKit
 import PhotosUI
+
+/// Native strings follow the device language: Russian on Russian devices, English elsewhere.
+func rvL(_ ru: String, _ en: String) -> String {
+    (Locale.preferredLanguages.first ?? "en").hasPrefix("ru") ? ru : en
+}
 import UniformTypeIdentifiers
 import UserNotifications
 
@@ -153,8 +158,8 @@ final class RivayaController: UIViewController, WKScriptMessageHandler, WKNaviga
         web?.evaluateJavaScript("rvLastReminderFingerprint='';syncSmartReminders(false)", completionHandler: nil)
     }
     private func showHealthHelp() {
-        let alert = UIAlertController(title: "Доступ к шагам", message: "Откройте «Здоровье» → профиль → Приложения → RIVAYA и разрешите чтение шагов. Если доступ уже разрешён, пройдите несколько шагов и вернитесь в RIVAYA. Apple не сообщает приложению, был ли доступ отклонён.", preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "Понятно", style: .default))
+        let alert = UIAlertController(title: rvL("Доступ к шагам", "Step access"), message: rvL("Откройте «Здоровье» → профиль → Приложения → RIVAYA и разрешите чтение шагов. Если доступ уже разрешён, пройдите несколько шагов и вернитесь в RIVAYA. Apple не сообщает приложению, был ли доступ отклонён.", "Open Health → your profile → Apps → RIVAYA and allow reading steps. If access is already allowed, walk a few steps and return to RIVAYA. Apple does not tell apps whether access was denied."), preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: rvL("Понятно", "Got it"), style: .default))
         if presentedViewController == nil { present(alert, animated: true) }
     }
     private func callback(_ name: String, _ value: String) {
@@ -163,11 +168,11 @@ final class RivayaController: UIViewController, WKScriptMessageHandler, WKNaviga
     }
     private func showPrivacy() {
         guard let url = Bundle.main.url(forResource: "privacy", withExtension: "html", subdirectory: "assets"), presentedViewController == nil else { return }
-        let controller = UIViewController(); controller.title = "Конфиденциальность"
+        let controller = UIViewController(); controller.title = rvL("Конфиденциальность", "Privacy")
         let page = WKWebView(); page.navigationDelegate = self
         controller.view = page; page.loadFileURL(url, allowingReadAccessTo: url.deletingLastPathComponent())
         let nav = UINavigationController(rootViewController: controller)
-        controller.navigationItem.rightBarButtonItem = UIBarButtonItem(title: "Готово", style: .done, target: self, action: #selector(closePresented))
+        controller.navigationItem.rightBarButtonItem = UIBarButtonItem(title: rvL("Готово", "Done"), style: .done, target: self, action: #selector(closePresented))
         present(nav, animated: true)
     }
     @objc private func closePresented() { dismiss(animated: true) }
@@ -225,8 +230,8 @@ final class RivayaController: UIViewController, WKScriptMessageHandler, WKNaviga
     }
     func webView(_ webView: WKWebView, runJavaScriptConfirmPanelWithMessage message: String, initiatedByFrame frame: WKFrameInfo, completionHandler: @escaping (Bool) -> Void) {
         let alert = UIAlertController(title: "RIVAYA", message: message, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "Отмена", style: .cancel) { _ in completionHandler(false) })
-        alert.addAction(UIAlertAction(title: "Подтвердить", style: .default) { _ in completionHandler(true) })
+        alert.addAction(UIAlertAction(title: rvL("Отмена", "Cancel"), style: .cancel) { _ in completionHandler(false) })
+        alert.addAction(UIAlertAction(title: rvL("Подтвердить", "Confirm"), style: .default) { _ in completionHandler(true) })
         present(alert, animated: true)
     }
     private func sendSteps(_ payload: [String: Any]) {

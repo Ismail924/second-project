@@ -46,7 +46,7 @@ final class ReminderService {
                 }
                 let content = UNMutableNotificationContent()
                 content.title = "RIVAYA"
-                content.body = "Напоминания работают. Сделай небольшой шаг к своей цели."
+                content.body = rvL("Напоминания работают. Сделай небольшой шаг к своей цели.", "Reminders are working. Take a small step toward your goal.")
                 content.sound = .default
                 try await center.add(UNNotificationRequest(identifier: "rivaya-test", content: content,
                     trigger: UNTimeIntervalNotificationTrigger(timeInterval: 3, repeats: false)))
