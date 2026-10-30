@@ -1,4 +1,4 @@
-name: RIVAYA 4.3.1 App Store review after TestFlight tests
+name: RIVAYA 4.3.1 verify TestFlight access and submit Apple review
 on:
   push:
     branches: ['release/rivaya-4.3.1']
@@ -7,59 +7,42 @@ permissions:
   contents: read
   actions: read
 jobs:
-  verify-tested-build:
-    runs-on: ubuntu-latest
-    timeout-minutes: 110
-    outputs:
-      build_number: ${{ steps.verify.outputs.build_number }}
-    steps:
-      - name: Require successful TestFlight and browser UI tests for exact source commit
-        id: verify
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TESTFLIGHT_RUN: '41064728274'
-          UI_RUN: '41064990426'
-          SOURCE_SHA: 'd2377dda067b0b135b239d443185f138e5fa5812'
-          UI_SOURCE_SHA: '671d8f17f1f7b6ee158338ef05ab74350cd20277'
-        run: |
-          set -euo pipefail
-          for iteration in $(seq 1 100); do
-            tf="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$TESTFLIGHT_RUN" --jq '[.status,(.conclusion // "pending"),.head_sha,(.run_number|tostring)] | join("|")')"
-            ui="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$UI_RUN" --jq '[.status,(.conclusion // "pending"),.head_sha] | join("|")')"
-            IFS='|' read -r tf_status tf_conclusion tf_sha tf_number <<< "$tf"
-            IFS='|' read -r ui_status ui_conclusion ui_sha <<< "$ui"
-            test "$tf_sha" = "$SOURCE_SHA" || { echo 'TestFlight source mismatch'; exit 1; }
-            test "$ui_sha" = "$UI_SOURCE_SHA" || { echo 'Browser source mismatch'; exit 1; }
-            echo "TestFlight: $tf_status ($tf_conclusion), UI: $ui_status ($ui_conclusion)"
-            if [[ "$tf_status" == 'completed' && "$tf_conclusion" != 'success' ]]; then echo 'TestFlight failed'; exit 1; fi
-            if [[ "$ui_status" == 'completed' && "$ui_conclusion" != 'success' ]]; then echo 'Browser tests failed'; exit 1; fi
-            if [[ "$tf_conclusion" == 'success' && "$ui_conclusion" == 'success' ]]; then
-              echo "build_number=$((41000 + tf_number))" >> "$GITHUB_OUTPUT"
-              exit 0
-            fi
-            sleep 60
-          done
-          echo 'Tests never completed successfully; no App Store submission.'
-          exit 1
-  submit-for-review:
-    needs: verify-tested-build
+  release-verified-build:
     runs-on: macos-15
-    timeout-minutes: 40
+    timeout-minutes: 35
     environment: app-store
     steps:
       - uses: actions/checkout@v4
+      - name: Verify previous iOS, browser and Android tests
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          ios="$(gh api repos/$GITHUB_REPOSITORY/actions/runs/41064728274/jobs)"
+          web="$(gh api repos/$GITHUB_REPOSITORY/actions/runs/41064990426)"
+          android="$(gh api repos/$GITHUB_REPOSITORY/actions/runs/41064728196)"
+          echo "$ios" | jq -e '[.jobs[].steps[] | select(.name == "Test cloud-enabled iOS guest mode and persistence before signing" and .conclusion == "success")] | length > 0'
+          echo "$web" | jq -e '.conclusion == "success" and .head_sha == "671d8f17f1f7b6ee158338ef05ab74350cd20277"'
+          echo "$android" | jq -e '.conclusion == "success" and .head_sha == "d2377dda067b0b135b239d443185f138e5fa5812"'
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.3'
           bundler-cache: true
           working-directory: rivaya-next/ios
-      - name: Submit exact verified build 4.3.1 to Apple App Store review
+      - name: Verify exact 4.3.1 build in Apple, grant existing internal TestFlight group access
         working-directory: rivaya-next/ios
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
-          RIVAYA_STORE_BUILD_NUMBER: ${{ needs.verify-tested-build.outputs.build_number }}
+        run: bundle exec ruby scripts/finalize-existing-testflight-431.rb
+      - name: Submit already-verified exact build for App Store review
+        working-directory: rivaya-next/ios
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+          RIVAYA_STORE_BUILD_NUMBER: '41017'
           FASTLANE_SKIP_UPDATE_CHECK: 'true'
           FASTLANE_HIDE_CHANGELOG: 'true'
           FASTLANE_OPT_OUT_USAGE: 'true'

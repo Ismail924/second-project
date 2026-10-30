@@ -1,0 +1,105 @@
+#!/usr/bin/env ruby
+# Verify the already-uploaded 4.3.1 (41017) build and grant existing internal testers access.
+# No IPA upload, no new build number and no public release are performed here.
+require 'json'
+require 'net/http'
+require 'uri'
+require 'openssl'
+require 'base64'
+require 'jwt'
+
+APP_ID = '6823716293'
+VERSION = '4.3.1'
+BUILD_NUMBER = '41017'
+INTERNAL_GROUP_ID = '2c4000e6-c4e6-4fe7-8126-46dc4f106e58'
+
+def api(method, path, payload = nil)
+  uri = URI("https://api.appstoreconnect.apple.com#{path}")
+  body = {
+    iss: ENV.fetch('ASC_ISSUER_ID'),
+    iat: Time.now.to_i - 15,
+    exp: Time.now.to_i + 900,
+    aud: 'appstoreconnect-v1'
+  }
+  key = OpenSSL::PKey::EC.new(Base64.strict_decode64(ENV.fetch('ASC_KEY_P8_BASE64').delete("\r\n")))
+  token = JWT.encode(body, key, 'ES256', { kid: ENV.fetch('ASC_KEY_ID'), typ: 'JWT' })
+  request = (method == :get ? Net::HTTP::Get : Net::HTTP::Post).new(uri)
+  request['Authorization'] = "Bearer #{token}"
+  request['Accept'] = 'application/json'
+  request['Content-Type'] = 'application/json'
+  request.body = JSON.generate(payload) if payload
+  response = Net::HTTP.start(uri.host, uri.port, use_ssl: true, open_timeout: 20, read_timeout: 35) { |http| http.request(request) }
+  parsed = response.body.to_s.empty? ? {} : (JSON.parse(response.body) rescue {})
+  [response.code.to_i, parsed]
+end
+
+def require_ok!(code, data, description)
+  return if (200..299).cover?(code)
+  reason = Array(data['errors']).map { |e| e['detail'] || e['title'] }.compact.join('; ')
+  abort("#{description}: HTTP #{code} #{reason[0, 300]}")
+end
+
+def group_build_ids
+  code, res = api(:get, "/v1/betaGroups/#{INTERNAL_GROUP_ID}/relationships/builds?limit=200")
+  require_ok!(code, res, 'Check existing internal group membership')
+  Array(res['data']).map { |item| item['id'] }
+end
+
+group_code, group = api(:get, "/v1/betaGroups/#{INTERNAL_GROUP_ID}")
+require_ok!(group_code, group, 'Find personal internal testing group')
+g = group.fetch('data').fetch('attributes')
+abort('Wrong beta group kind') unless g['isInternalGroup'] == true
+linked_app = group.dig('data', 'relationships', 'app', 'data', 'id')
+abort('Internal group is not for RIVAYA') if linked_app && linked_app != APP_ID
+
+params = URI.encode_www_form([['filter[app]', APP_ID], ['filter[version]', BUILD_NUMBER], ['include','preReleaseVersion'], ['limit','50']])
+list_code, list = api(:get, "/v1/builds?#{params}")
+require_ok!(list_code, list, 'Find exact TestFlight build')
+candidates = Array(list['data']).select { |item| item.dig('attributes','version').to_s == BUILD_NUMBER }
+abort('Apple has no matching 4.3.1 build 41017; the IPA must not be assumed uploaded') if candidates.empty?
+
+build = nil
+candidates.each do |candidate|
+  id = candidate.fetch('id')
+  detail_code, detail = api(:get, "/v1/builds/#{id}?include=preReleaseVersion")
+  next unless detail_code == 200
+  release = Array(detail['included']).find { |record| record['type'] == 'preReleaseVersions' }
+  next unless release && release.dig('attributes','version') == VERSION
+  build = detail.fetch('data')
+  break
+end
+abort('Apple did not confirm version 4.3.1 for 41017') unless build
+abort("Build is not processed: #{build.dig('attributes','processingState')}") unless build.dig('attributes','processingState') == 'VALID'
+build_id = build.fetch('id')
+puts "Apple confirms RIVAYA #{VERSION} build #{BUILD_NUMBER}, processing VALID."
+
+unless group_build_ids.include?(build_id)
+  endpoints = [
+    ["/v1/betaGroups/#{INTERNAL_GROUP_ID}/relationships/builds", { data: [{ type: 'builds', id: build_id }] }],
+    ["/v1/builds/#{build_id}/relationships/betaGroups", { data: [{ type: 'betaGroups', id: INTERNAL_GROUP_ID }] }]
+  ]
+  linked = false
+  endpoints.each do |path, body|
+    3.times do |attempt|
+      code, res = api(:post, path, body)
+      if (200..299).cover?(code) || group_build_ids.include?(build_id)
+        linked = true
+        break
+      end
+      reason = Array(res['errors']).map { |e| e['detail'] || e['title'] }.compact.join('; ')
+      puts "Group linking attempt #{attempt+1}: HTTP #{code} #{reason[0, 160]}"
+      sleep 15 if attempt < 2
+    end
+    break if linked
+  end
+  abort('Apple did not accept association with the internal group') unless linked
+end
+
+6.times do
+  if group_build_ids.include?(build_id)
+    puts "SUCCESS: RIVAYA #{VERSION} (#{BUILD_NUMBER}) is available to the personal internal TestFlight group."
+    exit 0
+  end
+  sleep 15
+end
+abort('Group assignment not confirmed by Apple; no App Store submission allowed.')
