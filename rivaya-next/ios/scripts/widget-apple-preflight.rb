@@ -22,6 +22,10 @@ app=fetch(token,'/v1/bundleIds?filter%5Bidentifier%5D=app.rivaya.smart01&limit=5
 widget=fetch(token,'/v1/bundleIds?filter%5Bidentifier%5D=app.rivaya.smart01.widgets&limit=5')
 cert=fetch(token,'/v1/certificates?filter%5BcertificateType%5D=DISTRIBUTION&limit=20')
 prof=fetch(token,'/v1/profiles?filter%5BprofileType%5D=IOS_APP_STORE&limit=30')
+fetch(token,'/v1/appGroups?limit=5')
+if app.is_a?(Array) && !app.empty?
+  fetch(token, "/v1/bundleIds/#{app[0].fetch('id')}/bundleIdCapabilities?limit=50")
+end
 if app.is_a?(Array)
  puts "Main bundle id: #{app.empty? ? 'not accessible' : 'exists'}"
 end
