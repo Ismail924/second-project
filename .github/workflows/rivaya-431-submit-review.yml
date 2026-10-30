@@ -1,0 +1,65 @@
+name: RIVAYA 4.3.1 App Store review after TestFlight tests
+on:
+  push:
+    branches: ['release/rivaya-4.3.1']
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+jobs:
+  verify-tested-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 110
+    outputs:
+      build_number: ${{ steps.verify.outputs.build_number }}
+    steps:
+      - name: Require successful TestFlight and browser UI tests for exact source commit
+        id: verify
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TESTFLIGHT_RUN: '41064990581'
+          UI_RUN: '41064990426'
+          SOURCE_SHA: '671d8f17f1f7b6ee158338ef05ab74350cd20277'
+        run: |
+          set -euo pipefail
+          for iteration in $(seq 1 100); do
+            tf="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$TESTFLIGHT_RUN" --jq '[.status,.conclusion,.head_sha,.run_number] | @tsv')"
+            ui="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$UI_RUN" --jq '[.status,.conclusion,.head_sha] | @tsv')"
+            IFS=$'\t' read -r tf_status tf_conclusion tf_sha tf_number <<< "$tf"
+            IFS=$'\t' read -r ui_status ui_conclusion ui_sha <<< "$ui"
+            test "$tf_sha" = "$SOURCE_SHA" || { echo 'TestFlight source mismatch'; exit 1; }
+            test "$ui_sha" = "$SOURCE_SHA" || { echo 'Browser source mismatch'; exit 1; }
+            echo "TestFlight: $tf_status ($tf_conclusion), UI: $ui_status ($ui_conclusion)"
+            if [[ "$tf_status" == 'completed' && "$tf_conclusion" != 'success' ]]; then echo 'TestFlight failed'; exit 1; fi
+            if [[ "$ui_status" == 'completed' && "$ui_conclusion" != 'success' ]]; then echo 'Browser tests failed'; exit 1; fi
+            if [[ "$tf_conclusion" == 'success' && "$ui_conclusion" == 'success' ]]; then
+              echo "build_number=$((41000 + tf_number))" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            sleep 60
+          done
+          echo 'Tests never completed successfully; no App Store submission.'
+          exit 1
+  submit-for-review:
+    needs: verify-tested-build
+    runs-on: macos-15
+    timeout-minutes: 40
+    environment: app-store
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+          working-directory: rivaya-next/ios
+      - name: Submit exact verified build 4.3.1 to Apple App Store review
+        working-directory: rivaya-next/ios
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+          RIVAYA_STORE_BUILD_NUMBER: ${{ needs.verify-tested-build.outputs.build_number }}
+          FASTLANE_SKIP_UPDATE_CHECK: 'true'
+          FASTLANE_HIDE_CHANGELOG: 'true'
+          FASTLANE_OPT_OUT_USAGE: 'true'
+        run: bundle exec fastlane ios submit_existing_431
