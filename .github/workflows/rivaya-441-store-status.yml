@@ -26,3 +26,5 @@ jobs:
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
         run: bundle exec ruby scripts/inspect-441-appstore.rb
+
+# Read-only screenshot eligibility check for current App Store status.
