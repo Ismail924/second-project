@@ -1,0 +1,28 @@
+name: Enable RIVAYA App Groups capability for app and widget
+on:
+  push:
+    branches: ['feature/rivaya-widgetkit-4.4']
+    paths:
+      - '.github/workflows/rivaya-44-enable-appgroups.yml'
+      - 'rivaya-next/ios/scripts/widget44-enable-groups.rb'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  app-groups:
+    runs-on: macos-15
+    environment: app-store
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+          working-directory: rivaya-next/ios
+      - name: Enable only APP_GROUPS capability on existing registered IDs
+        working-directory: rivaya-next/ios
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+        run: bundle exec ruby scripts/widget44-enable-groups.rb
