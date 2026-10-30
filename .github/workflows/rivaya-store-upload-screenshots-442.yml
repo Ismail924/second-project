@@ -1,0 +1,43 @@
+name: RIVAYA upload authentic screenshots to App Store draft 4.4.2
+on:
+  push:
+    branches: ['feature/rivaya-widget-polish-441']
+    paths: ['.github/workflows/rivaya-store-upload-screenshots-442.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  screenshots:
+    runs-on: ubuntu-latest
+    environment: app-store
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install browser for actual RIVAYA screenshot capture
+        run: |
+          npm install --prefix "$RUNNER_TEMP/rivaya-web" playwright@1.62.1
+          node "$RUNNER_TEMP/rivaya-web/node_modules/playwright/cli.js" install --with-deps chromium
+      - name: Capture 4 current App Store-ready screens with isolated sample data
+        env:
+          NODE_PATH: ${{ runner.temp }}/rivaya-web/node_modules
+        run: node rivaya-next/tests/capture-store-442.cjs
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+          working-directory: rivaya-next/ios
+      - name: Upload and verify 4 iPhone screenshots in next draft version
+        working-directory: rivaya-next/ios
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+        run: bundle exec ruby scripts/upload-store-screenshots-442.rb
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: RIVAYA-4.4.2-uploaded-store-screenshots
+          path: appstore-shots-442
