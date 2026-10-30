@@ -81,4 +81,83 @@ platform :ios do
       FileUtils.remove_entry(signing) if File.directory?(signing)
     end
   end
+
+  desc 'Sign app + WidgetKit extension and upload RIVAYA 4.4 to internal TestFlight only'
+  lane :beta_widgets do
+    require 'base64'
+    require 'shellwords'
+    require 'plist'
+    require 'fileutils'
+    require 'securerandom'
+    require 'tmpdir'
+    require 'open3'
+    required = %w[APPLE_CERTIFICATE_P12_BASE64 APPLE_CERTIFICATE_PASSWORD APPLE_APP_GROUP_PROFILE_BASE64 APPLE_WIDGET_PROFILE_BASE64 ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8_BASE64 RIVAYA_BUILD_NUMBER]
+    missing = required.select { |name| ENV[name].to_s.empty? }
+    UI.user_error!("Widget signing is not configured. Missing app-store GitHub secrets: #{missing.join(', ')}. Enable the App Group on both Apple Developer App IDs and regenerate both App Store profiles before upload.") unless missing.empty?
+    directory = Dir.mktmpdir('rivaya-widgets-signing-')
+    keychain = File.join(directory, 'widget.keychain-db')
+    keychain_password = SecureRandom.hex(32)
+    begin
+      certificate = File.join(directory, 'distribution.p12')
+      app_profile = File.join(directory, 'rivaya-app.mobileprovision')
+      widget_profile = File.join(directory, 'rivaya-widget.mobileprovision')
+      [
+        [certificate, 'APPLE_CERTIFICATE_P12_BASE64'],
+        [app_profile, 'APPLE_APP_GROUP_PROFILE_BASE64'],
+        [widget_profile, 'APPLE_WIDGET_PROFILE_BASE64']
+      ].each do |name, env_name|
+        File.binwrite(name, Base64.strict_decode64(ENV.fetch(env_name).gsub(/\s/, '')))
+        File.chmod(0600, name)
+      end
+      app_info = nil
+      widget_info = nil
+      [app_profile, widget_profile].each_with_index do |file, index|
+        decoded = IO.popen(['security', 'cms', '-D', '-i', file], &:read)
+        UI.user_error!('Invalid App Store provisioning profile') unless $?.success?
+        info = Plist.parse_xml(decoded)
+        expected_bundle = index.zero? ? 'app.rivaya.smart01' : 'app.rivaya.smart01.widgets'
+        UI.user_error!("Wrong profile team for #{expected_bundle}") unless info['TeamIdentifier'] == ['M2329MH9ZX']
+        entitlements = info.fetch('Entitlements', {})
+        UI.user_error!("Wrong profile bundle ID for #{expected_bundle}") unless entitlements['application-identifier'] == "M2329MH9ZX.#{expected_bundle}"
+        UI.user_error!("App Group group.app.rivaya.smart01 is not permitted for #{expected_bundle}") unless Array(entitlements['com.apple.security.application-groups']).include?('group.app.rivaya.smart01')
+        UI.user_error!('App Store profile must not be a development profile') if info['ProvisionedDevices'] || entitlements['get-task-allow']
+        if index.zero?
+          UI.user_error!('App profile must include HealthKit') unless entitlements['com.apple.developer.healthkit']
+          UI.user_error!('App profile must include Sign in with Apple') unless Array(entitlements['com.apple.developer.applesignin']).include?('Default')
+          app_info = info
+        else
+          widget_info = info
+        end
+      end
+      environment = { 'RIVAYA_TEMP_PASSWORD' => keychain_password }
+      pem = File.join(directory, 'certificate.pem')
+      compatible = File.join(directory, 'compatible.p12')
+      [
+        ['openssl', 'pkcs12', '-in', certificate, '-out', pem, '-passin', 'env:APPLE_CERTIFICATE_PASSWORD', '-passout', 'env:RIVAYA_TEMP_PASSWORD'],
+        ['openssl', 'pkcs12', '-export', '-in', pem, '-out', compatible, '-passin', 'env:RIVAYA_TEMP_PASSWORD', '-passout', 'env:RIVAYA_TEMP_PASSWORD', '-keypbe', 'PBE-SHA1-3DES', '-certpbe', 'PBE-SHA1-3DES', '-macalg', 'sha1']
+      ].each do |command|
+        _, _, status = Open3.capture3(environment, *command)
+        UI.user_error!('Could not import Apple Distribution certificate') unless status.success?
+      end
+      create_keychain(path:keychain,password:keychain_password,unlock:true,timeout:3600,add_to_search_list:true)
+      import_certificate(certificate_path:compatible,certificate_password:keychain_password,keychain_path:keychain,keychain_password:keychain_password)
+      codesigning, _, status = Open3.capture3('security', 'find-identity', '-v', '-p', 'codesigning', keychain)
+      UI.user_error!('Expected Apple Distribution signing identity is missing') unless status.success? && codesigning.include?('Apple Distribution: Ismail Uzbaev (M2329MH9ZX)')
+      install_provisioning_profile(path:app_profile)
+      install_provisioning_profile(path:widget_profile)
+      update_code_signing_settings(path:'Rivaya.xcodeproj',targets:['Rivaya'],use_automatic_signing:false,team_id:'M2329MH9ZX',code_sign_identity:'Apple Distribution',profile_name:app_info.fetch('Name'))
+      update_code_signing_settings(path:'Rivaya.xcodeproj',targets:['RivayaWidgets'],use_automatic_signing:false,team_id:'M2329MH9ZX',code_sign_identity:'Apple Distribution',profile_name:widget_info.fetch('Name'))
+      increment_build_number(build_number:ENV.fetch('RIVAYA_BUILD_NUMBER'),xcodeproj:'Rivaya.xcodeproj')
+      build_app(project:'Rivaya.xcodeproj',scheme:'Rivaya',clean:true,output_directory:'build/store',output_name:'RIVAYA-Widgets.ipa',export_method:'app-store',
+        export_options:{provisioningProfiles:{'app.rivaya.smart01'=>app_info.fetch('Name'),'app.rivaya.smart01.widgets'=>widget_info.fetch('Name')},signingStyle:'manual',teamID:'M2329MH9ZX'})
+      api = app_store_connect_api_key(key_id:ENV.fetch('ASC_KEY_ID'),issuer_id:ENV.fetch('ASC_ISSUER_ID'),key_content:ENV.fetch('ASC_KEY_P8_BASE64'),is_key_content_base64:true,duration:1200)
+      upload_to_testflight(api_key:api,app_identifier:'app.rivaya.smart01',apple_id:'6823716293',ipa:'build/store/RIVAYA-Widgets.ipa',skip_waiting_for_build_processing:true,distribute_external:false)
+      UI.message('RIVAYA 4.4 IPA uploaded. Waiting for Apple processing and internal group verification.')
+      sh('bundle exec ruby scripts/finalize-widget-testflight.rb')
+    ensure
+      delete_keychain(keychain_path:keychain) if File.exist?(keychain)
+      FileUtils.remove_entry(directory) if File.directory?(directory)
+    end
+  end
+
 end
