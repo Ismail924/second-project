@@ -33,15 +33,33 @@ ids={}
  filter=URI.encode_www_form([['filter[identifier]',identifier],['limit',10]])
  ids[identifier]=Array(api(token,:get,"/v1/bundleIds?#{filter}")['data']).find{|x|x.dig('attributes','identifier')==identifier}||abort("Bundle ID missing: #{identifier}")
 end
-all=api(token,:get,"/v1/profiles?include=bundleId,certificates&limit=200")
-profiles=Array(all['data'])
-main_id=ids.fetch('app.rivaya.smart01').fetch('id')
-previous=profiles.select{|p|p.dig('attributes','profileType')=='IOS_APP_STORE' &&
- p.dig('attributes','profileState')=='ACTIVE' &&
- p.dig('relationships','bundleId','data','id')==main_id}
-abort('Existing App Store profile for RIVAYA could not be found') if previous.empty?
-certificate_id=previous.filter_map{|p|Array(p.dig('relationships','certificates','data')).first&.dig('id')}.first
-abort('Existing certificate ID is not readable from the public App Store profile') unless certificate_id
+# Match the Apple distribution certificate to the private key already stored in
+# GitHub secrets. Do not rely on old provisioning profiles' relationship fields.
+cert_p12=OpenSSL::PKCS12.new(
+  Base64.strict_decode64(ENV.fetch('APPLE_CERTIFICATE_P12_BASE64').gsub(/\s/,'')),
+  ENV.fetch('APPLE_CERTIFICATE_PASSWORD')
+)
+local_cert=cert_p12.certificate
+abort('Distribution p12 does not contain a certificate') unless local_cert
+local_der=local_cert.to_der
+cert_response=api(token,:get,"/v1/certificates?limit=200")
+certificates=Array(cert_response['data'])
+matches=certificates.select do |item|
+  attributes=item.fetch('attributes',{})
+  next false unless attributes['certificateType'].to_s.include?('DISTRIBUTION')
+  content=attributes['certificateContent'].to_s.gsub(/\s/,'')
+  next false if content.empty?
+  begin
+    decoded=Base64.strict_decode64(content)
+    decoded==local_der || OpenSSL::X509::Certificate.new(decoded).to_der==local_der
+  rescue OpenSSL::X509::CertificateError,ArgumentError
+    false
+  end
+end
+abort('Cannot match existing Apple Distribution certificate in P12 to an active Apple Developer certificate; old profiles are not altered.') if matches.empty?
+certificate_id=matches.first.fetch('id')
+puts 'Confirmed distribution certificate matches installed private key.'
+
 names=[['app.rivaya.smart01','APPLE_APP_GROUP_PROFILE_BASE64'],
        ['app.rivaya.smart01.widgets','APPLE_WIDGET_PROFILE_BASE64']]
 profiles_for_build={}
