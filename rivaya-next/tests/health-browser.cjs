@@ -18,7 +18,7 @@ const server=http.createServer((req,res)=>{
     for(const status of ['denied','granted']){
       await page.evaluate(status=>window.vektorOnNativeSteps({status,steps:1250}),status);
       assert.equal(await page.locator('#view .health-source-summary').count(),1);
-      assert.equal(await page.locator('#view .source-card[aria-label="Apple Health и HealthKit"]').count(),0);
+      assert.equal(await page.locator('#view .source-card[aria-label*="HealthKit"]').count(),0);
       await page.locator('.health-source-summary').click();
       assert(await page.locator('#healthInfoModal.open').isVisible());
       assert((await page.locator('#healthInfoDescription').innerText()).includes('HealthKit'));
@@ -27,7 +27,7 @@ const server=http.createServer((req,res)=>{
       assert.equal(await page.locator('#healthInfoModal.open').count(),0);
       await page.locator('.nav-item[data-nav="progress"]').click();
       await page.locator('#view [data-nav="activity"]').first().click();
-      assert.equal(await page.locator('#view .source-card[aria-label="Apple Health и HealthKit"]').count(),1);
+      assert.equal(await page.locator('#view .source-card[aria-label*="HealthKit"]').count(),1);
       await page.locator('.nav-item[data-nav="today"]').click();
     }
     for(const width of [320,390,768]){

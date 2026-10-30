@@ -1,0 +1,4 @@
+/* HealthKit permission texts shown by iOS (English). */
+"NSHealthShareUsageDescription" = "RIVAYA reads your step count to show your daily activity and progress.";
+"NSHealthUpdateUsageDescription" = "RIVAYA uses Health to show your activity. The app only reads steps and never adds or changes Health data.";
+"CFBundleDisplayName" = "RIVAYA";
