@@ -53,23 +53,30 @@ linked_app = group.dig('data', 'relationships', 'app', 'data', 'id')
 abort('Internal group is not for RIVAYA') if linked_app && linked_app != APP_ID
 
 params = URI.encode_www_form([['filter[app]', APP_ID], ['filter[version]', BUILD_NUMBER], ['include','preReleaseVersion'], ['limit','50']])
-list_code, list = api(:get, "/v1/builds?#{params}")
-require_ok!(list_code, list, 'Find exact TestFlight build')
-candidates = Array(list['data']).select { |item| item.dig('attributes','version').to_s == BUILD_NUMBER }
-abort("Build #{BUILD_NUMBER} was uploaded but Apple has not indexed it") if candidates.empty?
-
 build = nil
-candidates.each do |candidate|
-  id = candidate.fetch('id')
-  detail_code, detail = api(:get, "/v1/builds/#{id}?include=preReleaseVersion")
-  next unless detail_code == 200
-  release = Array(detail['included']).find { |record| record['type'] == 'preReleaseVersions' }
-  next unless release && release.dig('attributes','version') == VERSION
-  build = detail.fetch('data')
-  break
+deadline = Time.now + 1200
+loop do
+  list_code, list = api(:get, "/v1/builds?#{params}")
+  require_ok!(list_code, list, 'Find exact TestFlight build')
+  candidates = Array(list['data']).select { |item| item.dig('attributes','version').to_s == BUILD_NUMBER }
+  candidates.each do |candidate|
+    id = candidate.fetch('id')
+    detail_code, detail = api(:get, "/v1/builds/#{id}?include=preReleaseVersion")
+    next unless detail_code == 200
+    release = Array(detail['included']).find { |record| record['type'] == 'preReleaseVersions' }
+    next unless release && release.dig('attributes','version') == VERSION
+    build = detail.fetch('data')
+    break
+  end
+  if build
+    state = build.dig('attributes', 'processingState')
+    abort("Apple rejected RIVAYA build #{BUILD_NUMBER}: #{state}") if %w[FAILED INVALID].include?(state)
+    break if state == 'VALID'
+  end
+  abort("Apple processing of RIVAYA #{VERSION} (#{BUILD_NUMBER}) is still pending; group assignment is unconfirmed.") if Time.now > deadline
+  puts 'Waiting for Apple to index and process WidgetKit build...'
+  sleep 30
 end
-abort("Apple did not confirm 4.4.0 for build #{BUILD_NUMBER}") unless build
-abort("Build is not processed: #{build.dig('attributes','processingState')}") unless build.dig('attributes','processingState') == 'VALID'
 build_id = build.fetch('id')
 puts "Apple confirms RIVAYA #{VERSION} build #{BUILD_NUMBER}, processing VALID."
 
