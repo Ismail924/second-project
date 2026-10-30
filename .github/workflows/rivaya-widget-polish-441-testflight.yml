@@ -1,0 +1,82 @@
+name: RIVAYA 4.4.1 redesigned widgets - internal TestFlight
+on:
+  push:
+    branches: ['feature/rivaya-widget-polish-441']
+    paths:
+      - '.github/workflows/rivaya-widget-polish-441-testflight.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: rivaya-441-testflight-only
+  cancel-in-progress: false
+jobs:
+  signed-widgets:
+    runs-on: macos-15
+    timeout-minutes: 75
+    environment: app-store
+    steps:
+      - uses: actions/checkout@v4
+      - name: Require successful exact widget simulator build before upload
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test "$(gh api repos/$GITHUB_REPOSITORY/actions/runs/41095158314 --jq .conclusion)" = "success"
+          test "$(gh api repos/$GITHUB_REPOSITORY/actions/runs/41095158314 --jq .head_sha)" = "fc45c213a830ec88665810272a9f6cceb5f760d6"
+          echo "PASS: exact polished WidgetKit source compiled for iPhone Simulator."
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify real habit snapshot calculations and existing app state
+        run: |
+          node --check rivaya-next/app/src/main/assets/widget-sync.js
+          node rivaya-next/tests/widget-snapshot-check.cjs
+          node rivaya-next/tests/state-check.cjs
+          node rivaya-next/tests/next-state-check.cjs
+          node rivaya-next/tests/sync-check.cjs
+      - name: Select Xcode and prepare project
+        run: |
+          bash rivaya-next/ios/scripts/select-xcode.sh
+          python3 rivaya-next/ios/scripts/prepare-resources.py
+          brew install xcodegen
+          cd rivaya-next/ios
+          xcodegen generate
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+          working-directory: rivaya-next/ios
+      - name: Set unique TestFlight build number for redesigned widgets
+        run: echo "RIVAYA_BUILD_NUMBER=$((45000 + GITHUB_RUN_NUMBER))" >> "$GITHUB_ENV"
+      - name: Create and validate both signed App Group provisioning profiles
+        working-directory: rivaya-next/ios
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+          APPLE_CERTIFICATE_P12_BASE64: ${{ secrets.APPLE_CERTIFICATE_P12_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: bundle exec ruby scripts/widget44-auto-profiles.rb
+      - name: Sign RIVAYA and WidgetKit extension, upload to internal TestFlight
+        working-directory: rivaya-next/ios
+        env:
+          APPLE_CERTIFICATE_P12_BASE64: ${{ secrets.APPLE_CERTIFICATE_P12_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_APP_GROUP_PROFILE_BASE64: ${{ env.APPLE_APP_GROUP_PROFILE_BASE64 }}
+          APPLE_WIDGET_PROFILE_BASE64: ${{ env.APPLE_WIDGET_PROFILE_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+          FASTLANE_SKIP_UPDATE_CHECK: 'true'
+          FASTLANE_HIDE_CHANGELOG: 'true'
+          FASTLANE_OPT_OUT_USAGE: 'true'
+        run: bundle exec fastlane ios beta_widgets
+      - name: Confirm Apple's processing and add this build to internal testers
+        working-directory: rivaya-next/ios
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+        run: bundle exec ruby scripts/finalize-widget-testflight.rb
