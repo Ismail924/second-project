@@ -35,6 +35,14 @@ const serve=http.createServer((req,res)=>{
       {id:'demo_project',name:'Работа над проектом',emoji:'🚀',freq:'Каждый день',createdAt:start,tracking:'check',reminderEnabled:true,reminderTime:'20:00'}
     ];
     state.checks={[today+'_demo_read']:true};
+    // Demonstration history for honest, populated statistics without personal data.
+    for(let i=1;i<=27;i++){
+      const d=new Date();d.setDate(d.getDate()-i);const key=dateKey(d);
+      if(i%7!==0)state.checks[key+'_demo_read']=true;
+      if(i%3!==0)state.checks[key+'_demo_project']=true;
+      state.habits[1].counts[key]={value:i%4===0?5:8,target:8,unit:'стаканов'};
+      state.habits[2].counts[key]={value:i%3===0?20:40,target:40,unit:'раз'};
+    }
     const dailySteps={};for(let i=0;i<30;i++){const day=new Date();day.setDate(day.getDate()-i);dailySteps[dateKey(day)]=Math.max(3400,7800-(i%5)*680);}
     dailySteps[today]=6240;
     state.activity={...state.activity,access:'granted',day:today,steps:6240,stepGoal:8000,dailySteps};
