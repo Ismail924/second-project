@@ -9,7 +9,7 @@ require 'base64'
 require 'jwt'
 
 APP_ID = '6823716293'
-VERSION = '4.4.0'
+VERSION = '4.4.1'
 BUILD_NUMBER = ENV.fetch('RIVAYA_BUILD_NUMBER')
 INTERNAL_GROUP_ID = '2c4000e6-c4e6-4fe7-8126-46dc4f106e58'
 

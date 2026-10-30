@@ -6,7 +6,7 @@
   'use strict';
   const U=window.RivayaNextUI,C=window.RivayaNextCore;
   if(!U||!C)return;
-  const VERSION='4.4.0';
+  const VERSION='4.4.1';
   const lang=()=>U.lang();
   const t=(ru,en)=>U.t(ru,en);
   const loc=()=>lang()==='en'?'en-US':'ru-RU';
