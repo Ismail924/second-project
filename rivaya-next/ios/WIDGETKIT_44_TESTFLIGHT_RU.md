@@ -14,20 +14,22 @@
 - Workflow: `.github/workflows/rivaya-widgetkit-44-testflight.yml` — подписанная сборка TestFlight (запускать только после настройки профилей).
 - Тест: `node rivaya-next/tests/widget-snapshot-check.cjs`.
 
-## Одноразовая настройка Apple Developer перед TestFlight
-[Apple Developer — Certificates, Identifiers & Profiles](https://developer.apple.com/account/resources/identifiers/list)
+## Подготовка Apple Developer перед TestFlight (остался один ручной этап)
 
-1. В **Identifiers** создайте App Group с идентификатором `group.app.rivaya.smart01`.
-2. Для существующего App ID `app.rivaya.smart01` включите **App Groups** и привяжите созданную группу, сохранив уже включённые HealthKit и Sign in with Apple.
-3. Создайте отдельный **explicit App ID** `app.rivaya.smart01.widgets`, включите App Groups и привяжите **ту же** группу.
-4. В **Profiles** создайте **два новых App Store Connect distribution profiles** для двух App ID с существующим сертификатом Apple Distribution (Team `M2329MH9ZX`).
-5. В GitHub Secrets окружения **app-store** добавьте:
-   - `APPLE_APP_GROUP_PROFILE_BASE64` — полный Base64 первого .mobileprovision.
-   - `APPLE_WIDGET_PROFILE_BASE64` — полный Base64 профиля виджета.
-   Сертификат и API-ключ уже используются существующим CI и должны остаться действительными. **Не отправляйте сертификаты, пароли, ключи или профили в чат или открытый репозиторий.**
-6. Запустите GitHub Actions → **RIVAYA 4.4 widgets internal TestFlight** на ветке `feature/rivaya-widgetkit-4.4`. Процесс собирает оба targets, подписывает, загружает только в TestFlight и проверяет внутреннюю группу. **Он не публикует в App Store.**
+Уже автоматически выполнено через подключённый Apple API:
+- Зарегистрирован новый Widget Extension App ID `app.rivaya.smart01.widgets`.
+- Подготовлен процесс включения App Groups для основного и Widget Extension App ID (GitHub Actions: `rivaya-44-enable-appgroups.yml`).
+- Подготовлен генератор новых **двух профилей App Store** через официальный Apple API. Секреты и `.mobileprovision` не нужно отправлять в чат.
 
-Внимание: после изменения capabilities для старого App ID прежний provisioning profile станет недействительным для новых сборок. Опубликованные бинарные версии не изменяются. Выпуск 4.3.1 в App Store не трогать.
+**Apple не предоставляет публичный API для регистрации и привязки имени App Group к App ID.** Единственное обязательное действие в интерфейсе Apple Developer:
+
+1. [Apple Developer → Certificates, Identifiers & Profiles](https://developer.apple.com/account/resources/identifiers/list) → Identifiers → кнопка **+** → **App Groups** → **Continue**.
+2. Создать и зарегистрировать App Group с идентификатором **`group.app.rivaya.smart01`** (если уже существует — повторно не создавать).
+3. В **Identifiers** открыть **`app.rivaya.smart01`** и **`app.rivaya.smart01.widgets`** по очереди, включить App Groups, выбрать **`group.app.rivaya.smart01`**, сохранить.
+
+После этого обновить ветку или запустить workflow **`RIVAYA 4.4 widgets internal TestFlight`** на ветке `feature/rivaya-widgetkit-4.4`. Сценарий самостоятельно выпустит два новых профиля, проверит в них entitlement группы, подпишет два target и загрузит IPA во **внутреннюю группу TestFlight**. **Сейчас TestFlight 4.4 ещё не опубликована.**
+
+Никогда не публикуйте сертификаты, .p8, пароли или provisioning profiles в переписке, GitHub issues или открытом репозитории.
 
 ## Проверка на устройстве
 Установить RIVAYA 4.4 через TestFlight → открыть один раз → создать/отметить привычку → долго удерживать рабочий стол iPhone → Добавить виджет → RIVAYA → выбрать маленький и большой → проверить реальный процент, название, отметки, изменение после открытия приложения и обновление на следующий день.
