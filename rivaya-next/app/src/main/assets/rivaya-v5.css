@@ -274,3 +274,17 @@ html.v5 .modal-card,html.v5 .modal .sheet{background:var(--v5-s1)!important;bord
 .v5-kpis strong{font-size:18px;font-weight:850}
 .v5-kpis.inner b{font-size:18px}
 .v5-steps-strip{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:2px 4px}.v5-steps-strip>button:first-child{border:0;background:none;padding:6px 0;color:var(--v5-t2);font-weight:700;font-size:13.5px}.v5-steps-strip .health-source-summary{margin:0!important}
+
+
+/* 4.3.1: pixel-aligned date rings and a collapsed list of completed habits. */
+.v5-week .v5-day{min-width:0;align-items:center;justify-content:flex-start}
+.v5-week .v5-day-ring{position:relative;display:grid;place-items:center;flex:0 0 34px;width:34px;height:34px;min-width:34px;min-height:34px;isolation:isolate}
+.v5-week .v5-day-ring>.v5-ring{position:absolute!important;inset:0!important;display:block!important;width:34px!important;height:34px!important;margin:0!important;padding:0!important;transform:rotate(-90deg)!important;transform-origin:50% 50%!important}
+.v5-week .v5-day-ring>b{position:relative!important;inset:auto!important;z-index:1;display:block;line-height:1;text-align:center;font-variant-numeric:tabular-nums;transform:none!important;pointer-events:none}
+.v5-today-completed{margin-top:12px;padding:6px 10px}
+.v5-today-completed summary{min-height:44px;display:flex;align-items:center;justify-content:space-between;gap:8px;list-style:none;color:var(--v5-t2);font-weight:750;cursor:pointer}
+.v5-today-completed summary::-webkit-details-marker{display:none}
+.v5-today-completed summary::after{content:'⌄';font-size:18px;color:var(--v5-t3);transition:transform .2s}
+.v5-today-completed[open] summary::after{transform:rotate(180deg)}
+.v5-today-completed .v5-completed-rows{padding-top:8px;border-top:1px solid var(--v5-line)}
+.v5-today-completed .v5-habit{min-height:56px}

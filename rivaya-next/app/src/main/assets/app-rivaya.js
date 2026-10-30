@@ -1431,7 +1431,7 @@ renderProfile=function(){
       <div class="rv-target-setting"><div class="rv-target-setting-icon">×</div><div class="rv-target-setting-copy"><b>Удалить данные</b><span>Очистить цели, привычки и профиль на этом устройстве</span></div><button id="resetBtn">Удалить</button></div>
     </div></div>
     <section class="rv-target-profile-footer">
-      <div class="rv-target-footer-copy"><b>RIVAYA 4.3.0</b><span>Цели · привычки · реальные шаги · прогресс</span></div>
+      <div class="rv-target-footer-copy"><b>RIVAYA 4.3.1</b><span>Цели · привычки · реальные шаги · прогресс</span></div>
       <div class="rv-target-author">
         <span>Автор</span>
         <button class="rv-target-instagram" data-external="https://www.instagram.com/_isma_guder_/">

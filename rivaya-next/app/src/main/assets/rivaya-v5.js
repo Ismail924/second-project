@@ -6,7 +6,7 @@
   'use strict';
   const U=window.RivayaNextUI,C=window.RivayaNextCore;
   if(!U||!C)return;
-  const VERSION='4.3.0';
+  const VERSION='4.3.1';
   const lang=()=>U.lang();
   const t=(ru,en)=>U.t(ru,en);
   const loc=()=>lang()==='en'?'en-US':'ru-RU';
@@ -197,10 +197,16 @@
     else if(done===0&&p===0){title=t('Сделай первый шаг','Make the first move');sub=t(`Сегодня по плану: ${nHabits(planned.length)}.`,`Planned today: ${nHabits(planned.length)}.`)}
     else{title=lang()==='en'?`${left} ${left===1?'habit':'habits'} left`:`${plural(left,['Осталась','Осталось','Осталось'],[])} ${nHabits(left)}`;sub=t('Ты на верном пути — ещё немного.','You are on track — almost there.')}
     const groups=GROUPS().map(([key,icon,label])=>{
-      const list=planned.filter(h=>timeGroup(h)===key);if(!list.length)return '';
-      const d=list.filter(h=>doneToday(h.id)).length;
-      return `<section class="v5-card v5-group"><div class="v5-group-head"><span>${icon} ${label}</span><small>${d} ${t('из','of')} ${list.length}</small></div>${list.map(h=>habitRow(h,{compact:true})).join('')}</section>`;
+      const list=planned.filter(h=>!doneToday(h.id)&&timeGroup(h)===key);if(!list.length)return '';
+      // Completed entries stay in a collapsible list for review and undo.
+      return `<section class="v5-card v5-group"><div class="v5-group-head"><span>${icon} ${label}</span><small>${nHabits(list.length)} ${t('осталось','left')}</small></div>${list.map(h=>habitRow(h,{compact:true})).join('')}</section>`;
     }).join('');
+    // The list resets automatically on the next scheduled day: no data is erased.
+    const completed=planned.filter(h=>doneToday(h.id));
+    const completedSection=completed.length?
+      '<details class="v5-card v5-done-list v5-today-completed"><summary>'+
+      t('Выполнено сегодня','Completed today')+' · '+nHabits(completed.length)+
+      '</summary><div class="v5-completed-rows">'+completed.map(h=>habitRow(h,{compact:true})).join('')+'</div></details>':'';
     const goal=nearestGoal&&nearestGoal();
     const goalTile=goal&&goal.type!=='task'?`<button class="v5-card v5-tile" data-nx="goal" data-id="${goal.id}"><span class="v5-cap">${t('Ближайшая цель','Next goal')}</span><b>${esc(goal.name)}</b>${bar(goalPct(goal),'thin')}<small>${goalPct(goal)}% · ${dueLabel(goal.deadline)}</small></button>`
       :`<button class="v5-card v5-tile" data-nx="new-goal"><span class="v5-cap">${t('Цель','Goal')}</span><b>${t('Поставь цель','Set a goal')}</b><small>${t('Свяжи её с привычками','Link it to your habits')}</small></button>`;
@@ -215,7 +221,7 @@
         <div class="v5-focus-copy"><span class="v5-cap">${t('Фокус дня','Daily focus')}</span><h2>${title}</h2><p>${sub}</p>${planned.length||visible.includes('habits')?'':`<button class="v5-btn small" data-nx="new-habit">＋ ${t('Добавить привычку','Add a habit')}</button>`}</div>
       </section>`,
       tasks:()=>tasks.length?`<section class="v5-card v5-group"><div class="v5-group-head"><span>📌 ${t('Дела на сегодня','Tasks for today')}</span><small>${tasks.length}</small></div>${tasks.map(taskRow).join('')}</section>`:'',
-      habits:()=>groups||(planned.length?'':`<section class="v5-card">${empty('✨',t('Сегодня привычек нет','No habits today'),state.habits.length?t('По расписанию на сегодня ничего не запланировано.','Nothing is scheduled for today.'):t('Добавь первую привычку — например, «Вода 8 стаканов» или «Читать 20 минут».','Add your first habit — e.g. “Water, 8 glasses” or “Read 20 minutes”.'),`<button class="v5-btn" data-nx="new-habit">＋ ${t('Новая привычка','New habit')}</button>`)}</section>`),
+      habits:()=>groups+completedSection||(planned.length?'':`<section class="v5-card">${empty('✨',t('Сегодня привычек нет','No habits today'),state.habits.length?t('По расписанию на сегодня ничего не запланировано.','Nothing is scheduled for today.'):t('Добавь первую привычку — например, «Вода 8 стаканов» или «Читать 20 минут».','Add your first habit — e.g. “Water, 8 glasses” or “Read 20 minutes”.'),`<button class="v5-btn" data-nx="new-habit">＋ ${t('Новая привычка','New habit')}</button>`)}</section>`),
       next:()=>nextGoal?`<button class="v5-card v5-next" data-nx="goal" data-id="${nextGoal.id}"><span class="v5-habit-icon" style="background:rgba(123,92,255,.18)">🎯</span><span class="v5-habit-copy"><span class="v5-cap">${t('Следующий этап','Next step')}</span><b>${esc(nextGoal.steps.find(x=>!x.done).name)}</b><small>${esc(nextGoal.name)} · ${goalPct(nextGoal)}%</small></span>${chev}</button>`:'',
       goals:()=>activeGoals.length?`<div class="v5-goals">${activeGoals.slice(0,2).map(goalCard).join('')}</div>`:goalTile,
       steps:()=>stepsTile,

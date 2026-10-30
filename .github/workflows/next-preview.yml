@@ -1,7 +1,7 @@
 name: RIVAYA 4.1 integrated preview
 on:
   push:
-    branches: ['feature/rivaya-4.1']
+    branches: ['feature/rivaya-4.1', 'testflight/rivaya-4.1', 'release/rivaya-4.3.1']
 permissions:
   contents: read
 jobs:
@@ -25,6 +25,7 @@ jobs:
           npm install --prefix "$RUNNER_TEMP/rivaya-web" playwright@1.62.1
           node "$RUNNER_TEMP/rivaya-web/node_modules/playwright/cli.js" install --with-deps chromium
       - run: node rivaya-next/tests/next-browser.cjs
+      - run: node rivaya-next/tests/v5-today-check.cjs
         env:
           NODE_PATH: ${{ runner.temp }}/rivaya-web/node_modules
       - uses: actions/upload-artifact@v4
