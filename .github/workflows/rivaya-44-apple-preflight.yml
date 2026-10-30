@@ -21,8 +21,9 @@ jobs:
           bundler-cache: true
           working-directory: rivaya-next/ios
       - name: Read-only Apple Developer provisioning permission probe
+        working-directory: rivaya-next/ios
         env:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
-        run: bundle exec ruby rivaya-next/ios/scripts/widget-apple-preflight.rb
+        run: bundle exec ruby scripts/widget-apple-preflight.rb
