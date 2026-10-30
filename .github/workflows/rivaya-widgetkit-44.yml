@@ -1,0 +1,46 @@
+name: RIVAYA 4.4 WidgetKit simulator and widget snapshot checks
+on:
+  push:
+    branches: ['feature/rivaya-widgetkit-4.4']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  widget-simulator:
+    runs-on: macos-15
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify widget snapshot and existing data logic
+        run: |
+          node --check rivaya-next/app/src/main/assets/widget-sync.js
+          node rivaya-next/tests/widget-snapshot-check.cjs
+          node rivaya-next/tests/state-check.cjs
+          node rivaya-next/tests/next-state-check.cjs
+          node rivaya-next/tests/sync-check.cjs
+      - name: Select Xcode and prepare resources
+        run: |
+          bash rivaya-next/ios/scripts/select-xcode.sh
+          python3 rivaya-next/ios/scripts/prepare-resources.py
+          brew install xcodegen
+      - name: Generate WidgetKit extension project
+        working-directory: rivaya-next/ios
+        run: |
+          xcodegen generate
+          xcodebuild -list -project Rivaya.xcodeproj
+      - name: Compile iOS app and widget for iPhone simulator
+        working-directory: rivaya-next/ios
+        run: |
+          xcodebuild -project Rivaya.xcodeproj -scheme Rivaya -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
+          test -d build/Build/Products/Debug-iphonesimulator/Rivaya.app/PlugIns/RivayaWidgets.appex
+          echo "PASS: real WidgetKit extension embedded in simulator app"
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: RIVAYA-4.4-WIDGETS-SIMULATOR-PREVIEW-NOT-INSTALLABLE
+          path: rivaya-next/ios/build/Build/Products/Debug-iphonesimulator/Rivaya.app
