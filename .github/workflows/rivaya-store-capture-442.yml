@@ -1,0 +1,31 @@
+name: RIVAYA 4.4.1 capture authentic App Store screenshots
+on:
+  push:
+    branches: ['feature/rivaya-widget-polish-441']
+    paths:
+      - '.github/workflows/rivaya-store-capture-442.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install iPhone-sized browser screenshot runtime
+        run: |
+          npm install --prefix "$RUNNER_TEMP/rivaya-web" playwright@1.62.1
+          node "$RUNNER_TEMP/rivaya-web/node_modules/playwright/cli.js" install --with-deps chromium
+      - name: Capture screens from real RIVAYA HTML/CSS with isolated sample habits
+        env:
+          NODE_PATH: ${{ runner.temp }}/rivaya-web/node_modules
+        run: node rivaya-next/tests/capture-store-442.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: RIVAYA-real-screens-442-preview
+          path: appstore-shots-442
