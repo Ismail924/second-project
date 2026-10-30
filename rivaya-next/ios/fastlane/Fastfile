@@ -179,4 +179,32 @@ platform :ios do
     sh('bundle exec ruby scripts/finalize-widget-testflight.rb')
   end
 
+  desc 'Submit only the already verified RIVAYA 4.4.1 TestFlight build to App Store review'
+  lane :submit_existing_441 do
+    required = %w[ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8_BASE64]
+    missing = required.select { |name| ENV[name].to_s.empty? }
+    UI.user_error!("Missing App Store submission API access: #{missing.join(', ')}") unless missing.empty?
+    key = app_store_connect_api_key(
+      key_id: ENV.fetch('ASC_KEY_ID'),
+      issuer_id: ENV.fetch('ASC_ISSUER_ID'),
+      key_content: ENV.fetch('ASC_KEY_P8_BASE64'),
+      is_key_content_base64: true,
+      duration: 1200
+    )
+    deliver(
+      api_key: key,
+      app_identifier: 'app.rivaya.smart01',
+      app_version: '4.4.1',
+      build_number: '45001',
+      skip_binary_upload: true,
+      skip_metadata: true,
+      skip_screenshots: true,
+      submit_for_review: true,
+      precheck_include_in_app_purchases: false,
+      automatic_release: true,
+      force: true,
+      submission_information: { export_compliance_uses_encryption: false }
+    )
+  end
+
 end
