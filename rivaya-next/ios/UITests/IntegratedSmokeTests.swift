@@ -31,7 +31,15 @@ final class IntegratedSmokeTests: XCTestCase {
         XCTAssertTrue(step.waitForExistence(timeout: 10), app.debugDescription)
         reveal(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "271828")).firstMatch, in: app)
         attach("Goal stages")
-        app.terminate(); app.launch(); XCTAssertTrue(plan.waitForExistence(timeout: 10)); tapReady(plan)
+        app.terminate(); app.launch()
+        // iOS simulator can relaunch WKWebView much more slowly than the initial session.
+        // Keep the persistence assertion, allow the web view to finish, and capture diagnostics if it fails.
+        guard plan.waitForExistence(timeout: 35) else {
+            attach("RIVAYA after relaunch - Plan missing")
+            XCTFail("Plan tab missing after relaunch: \\(app.debugDescription)")
+            return
+        }
+        tapReady(plan)
         XCTAssertTrue(card.waitForExistence(timeout: 10), app.debugDescription); card.tap()
         reveal(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "271828")).firstMatch, in: app)
         attach("Persisted stages")
