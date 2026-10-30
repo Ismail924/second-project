@@ -58,12 +58,12 @@ abort('No App Store localization for screenshots') unless locale
 loc_id=locale.fetch('id')
 puts "RIVAYA 4.4.2 DRAFT: locale #{locale.dig('attributes','locale')}"
 items=Array(asc(:get,"/v1/appStoreVersionLocalizations/#{loc_id}/appScreenshotSets?limit=100")['data'])
-set=items.find{|s|s.dig('attributes','screenshotDisplayType')=='APP_IPHONE_69'}
+set=items.find{|s|s.dig('attributes','screenshotDisplayType')=='APP_IPHONE_67'}
 unless set
-  create={data:{type:'appScreenshotSets',attributes:{screenshotDisplayType:'APP_IPHONE_69'},
+  create={data:{type:'appScreenshotSets',attributes:{screenshotDisplayType:'APP_IPHONE_67'},
     relationships:{appStoreVersionLocalization:{data:{type:'appStoreVersionLocalizations',id:loc_id}}}}}
   set=asc(:post,'/v1/appScreenshotSets',create).fetch('data')
-  puts "Created screenshot set APP_IPHONE_69"
+  puts "Created screenshot set APP_IPHONE_67"
 end
 set_id=set.fetch('id')
 previous=Array(asc(:get,"/v1/appScreenshotSets/#{set_id}/appScreenshots?limit=100")['data'])
