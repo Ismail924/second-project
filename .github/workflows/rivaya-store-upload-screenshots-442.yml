@@ -41,3 +41,5 @@ jobs:
         with:
           name: RIVAYA-4.4.2-uploaded-store-screenshots
           path: appstore-shots-442
+
+# Retry with Apple-supported screenshot display type.
