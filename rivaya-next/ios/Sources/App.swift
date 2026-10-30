@@ -21,10 +21,25 @@ final class AppDelegate: UIResponder, UIApplicationDelegate {
         window.overrideUserInterfaceStyle = .dark
         return true
     }
+    func application(_ application: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
+        guard url.scheme == "rivaya", url.host == "today" else { return false }
+        (window?.rootViewController as? RivayaController)?.showTodayFromWidget()
+        return true
+    }
 }
 
 final class RivayaController: UIViewController, WKScriptMessageHandler, WKNavigationDelegate, WKUIDelegate, PHPickerViewControllerDelegate, UIDocumentPickerDelegate, UNUserNotificationCenterDelegate {
     private var web: WKWebView!
+    private var widgetNavigationPending = false
+    func showTodayFromWidget() {
+        widgetNavigationPending = true
+        if web != nil { navigateToWidget() }
+    }
+    private func navigateToWidget() {
+        guard web != nil, widgetNavigationPending, !web.isLoading else { return }
+        widgetNavigationPending = false
+        web.evaluateJavaScript("currentView='today';render();window.rivayaPublishWidget?.()", completionHandler:nil)
+    }
     private let health = HKHealthStore()
     private var refreshing = false
     private let reminders = ReminderService()
@@ -42,6 +57,7 @@ final class RivayaController: UIViewController, WKScriptMessageHandler, WKNaviga
         window.RIVAYA_IOS = true;
         window.VektorNative = {
           shareText: text => window.webkit.messageHandlers.rivaya.postMessage({action:'shareText',text}),
+          publishWidgetSnapshot: text => window.webkit.messageHandlers.rivaya.postMessage({action:'publishWidgetSnapshot',text}),
           backendRequest: text => window.webkit.messageHandlers.rivaya.postMessage({action:'backendRequest',text}),
           secureSession: text => window.webkit.messageHandlers.rivaya.postMessage({action:'secureSession',text}),
           signInWithApple: text => window.webkit.messageHandlers.rivaya.postMessage({action:'signInWithApple',text}),
@@ -93,11 +109,17 @@ final class RivayaController: UIViewController, WKScriptMessageHandler, WKNaviga
         web.loadFileURL(page, allowingReadAccessTo: page.deletingLastPathComponent())
         NotificationCenter.default.addObserver(self, selector: #selector(becameActive), name: UIApplication.didBecomeActiveNotification, object: nil)
     }
-    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) { refreshSteps() }
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        refreshSteps()
+        webView.evaluateJavaScript("window.rivayaPublishWidget?.()", completionHandler: nil)
+        navigateToWidget()
+    }
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
         guard message.frameInfo.isMainFrame, message.frameInfo.request.url?.isFileURL == true,
               let body = message.body as? [String: Any], let action = body["action"] as? String else { return }
         switch action {
+        case "publishWidgetSnapshot":
+            if let text = body["text"] as? String { RivayaWidgetBridge.publish(text) }
         case "shareText":
             if let text=body["text"] as? String, text.count<=4000, presentedViewController == nil {
                 let controller=UIActivityViewController(activityItems:[text],applicationActivities:nil)
@@ -155,6 +177,8 @@ final class RivayaController: UIViewController, WKScriptMessageHandler, WKNaviga
     }
     @objc private func becameActive() {
         refreshSteps()
+        navigateToWidget()
+        web?.evaluateJavaScript("window.rivayaPublishWidget?.()", completionHandler: nil)
         web?.evaluateJavaScript("rvLastReminderFingerprint='';syncSmartReminders(false)", completionHandler: nil)
     }
     private func showHealthHelp() {
