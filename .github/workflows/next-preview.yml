@@ -25,6 +25,8 @@ jobs:
           npm install --prefix "$RUNNER_TEMP/rivaya-web" playwright@1.62.1
           node "$RUNNER_TEMP/rivaya-web/node_modules/playwright/cli.js" install --with-deps chromium
       - run: node rivaya-next/tests/next-browser.cjs
+        env:
+          NODE_PATH: ${{ runner.temp }}/rivaya-web/node_modules
       - run: node rivaya-next/tests/v5-today-check.cjs
         env:
           NODE_PATH: ${{ runner.temp }}/rivaya-web/node_modules
