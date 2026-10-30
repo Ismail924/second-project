@@ -3,13 +3,14 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <meta name="theme-color" content="#090b10" />
+  <meta name="theme-color" content="#0B0B1A" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="apple-mobile-web-app-title" content="RIVAYA" />
   <title>RIVAYA — цели и привычки</title>
       <link rel="stylesheet" href="app-rivaya.css" />
       <link rel="stylesheet" href="next-ui.css" />
+      <link rel="stylesheet" href="rivaya-neon.css" />
 <style>
 .rivaya-splash .rv-brand-svg{width:88px;height:88px;display:block}.brand-image .rv-brand-svg{width:100%;height:100%;display:block}.top-actions #installBtn{display:none!important}
 </style>
@@ -40,7 +41,8 @@
     <nav class="bottom-nav rv-bottom-nav" aria-label="Основная навигация">
       <button class="nav-item active" data-nav="today"><span class="rv-nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5v9a1.5 1.5 0 0 1-1.5 1.5h-5v-6h-5v6h-5A1.5 1.5 0 0 1 3 19.5z"/></svg></span><small>Сегодня</small></button>
       <button class="nav-item" data-nav="plan"><span class="rv-nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="15" rx="3"/><path d="M8 3v4M16 3v4M7.5 11h3M13.5 11h3M7.5 15h3M13.5 15h3"/></svg></span><small>План</small></button>
-      <button class="nav-item" data-nav="progress"><span class="rv-nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V11M12 20V5M19 20v-8"/></svg></span><small>Прогресс</small></button>
+      <button class="rv-nav-quick" data-nx="home-add" aria-label="Добавить привычку или цель" title="Добавить">+</button>
+       <button class="nav-item" data-nav="progress"><span class="rv-nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 20V11M12 20V5M19 20v-8"/></svg></span><small>Прогресс</small></button>
       <button class="nav-item" data-nav="profile"><span class="rv-nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4.5 21a7.5 7.5 0 0 1 15 0"/></svg></span><small>Профиль</small></button>
     </nav>
   </div>
