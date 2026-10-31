@@ -27,6 +27,7 @@ jobs:
           set -euo pipefail
           node --check rivaya-next/app/src/main/assets/rivaya-v5.js
           node --check rivaya-next/app/src/main/assets/account-ui.js
+          grep -q 'enabled:true,appleEnabled:false' rivaya-next/app/src/main/assets/backend-config.js
           node rivaya-next/tests/state-check.cjs
           node rivaya-next/tests/next-state-check.cjs
           node rivaya-next/tests/sync-check.cjs
