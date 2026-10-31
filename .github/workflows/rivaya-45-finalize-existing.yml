@@ -1,0 +1,32 @@
+name: RIVAYA 4.5 — finalize existing TestFlight build 46001
+on:
+  push:
+    branches: ['feature/rivaya-4.5-optional-shared-goals-steps']
+    paths:
+      - '.github/workflows/rivaya-45-finalize-existing.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: rivaya-45-finalize-existing
+  cancel-in-progress: false
+jobs:
+  confirm-46001:
+    runs-on: macos-15
+    timeout-minutes: 40
+    environment: app-store
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+          working-directory: rivaya-next/ios
+      - name: Confirm Apple processing and add existing build 46001 to internal testers
+        working-directory: rivaya-next/ios
+        env:
+          RIVAYA_BUILD_NUMBER: '46001'
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+        run: bundle exec ruby scripts/finalize-widget-testflight.rb
