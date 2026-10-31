@@ -6,10 +6,13 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: rivaya-screenshots-ppo
+  cancel-in-progress: false
 jobs:
   ppo:
     runs-on: ubuntu-latest
-    timeout-minutes: 28
+    timeout-minutes: 35
     environment: app-store
     steps:
       - uses: actions/checkout@v4
