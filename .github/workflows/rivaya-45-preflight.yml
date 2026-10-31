@@ -1,0 +1,31 @@
+name: RIVAYA 4.5 iOS preflight (no release)
+on:
+  push:
+    branches: ['feature/rivaya-4.5-optional-shared-goals-steps']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  validation:
+    runs-on: macos-15
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate modified scripts and existing state
+        run: |
+          node --check rivaya-next/app/src/main/assets/rivaya-v5.js
+          node --check rivaya-next/app/src/main/assets/account-ui.js
+          node rivaya-next/tests/state-check.cjs
+          node rivaya-next/tests/next-state-check.cjs
+          node rivaya-next/tests/sync-check.cjs
+      - name: Build unsigned iOS simulator version
+        run: |
+          bash rivaya-next/ios/scripts/select-xcode.sh
+          python3 rivaya-next/ios/scripts/prepare-resources.py
+          brew install xcodegen
+          cd rivaya-next/ios
+          xcodegen generate
+          xcodebuild -project Rivaya.xcodeproj -scheme Rivaya -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' -derivedDataPath build CODE_SIGNING_ALLOWED=NO build
