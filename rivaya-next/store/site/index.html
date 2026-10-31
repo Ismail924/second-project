@@ -1,1 +1,96 @@
-<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>RIVAYA — поддержка</title><style>body{font:18px/1.7 system-ui;background:#080b19;color:#e6e9ff;max-width:760px;margin:auto;padding:40px 24px}h1{font-size:48px}a{color:#58dfff}</style><main><h1>RIVAYA</h1><p>Цели, привычки и реальные шаги — в одном приложении.</p><h2>Поддержка</h2><p>Напишите на <a href="mailto:support@rivayaapp.com">support@rivayaapp.com</a>. Укажите версию приложения, модель телефона и последовательность действий. Не отправляйте пароли.</p><h2>Где хранятся данные?</h2><p>Версия 4.0.2 работает без аккаунта. Данные автоматически сохраняются на этом устройстве. Синхронизации между устройствами пока нет. При смене телефона можно воспользоваться экспортом и восстановлением в профиле.</p><h2>Нет шагов?</h2><p>Разрешите RIVAYA читать шаги в Apple Health («Здоровье»). При отсутствии данных пройдите несколько шагов и откройте приложение снова. Ручной ввод пройденных шагов не предусмотрен.</p><h2>Нет уведомлений?</h2><p>Проверьте разрешение для RIVAYA в настройках iPhone и режим «Фокусирование». Настройте время и тихий режим в профиле. При большом количестве напоминаний открывайте приложение ежедневно для продления расписания.</p><p><a href="privacy.html">Политика конфиденциальности</a></p></main></html>
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0c0922">
+  <meta name="description" content="RIVAYA — бесплатное приложение для привычек, целей и прогресса. Виджеты iPhone, напоминания и шаги из Apple Health. Без рекламы и обязательной регистрации.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="RIVAYA">
+  <meta property="og:title" content="RIVAYA — привычки, цели и прогресс">
+  <meta property="og:description" content="Привычки и цели в одном месте. Отмечай выполненное, смотри прогресс и используй виджеты iPhone. Бесплатно.">
+  <meta property="og:url" content="https://rivayaapp.com/">
+  <link rel="canonical" href="https://rivayaapp.com/">
+  <title>RIVAYA — трекер привычек, целей и прогресса</title>
+  <style>
+    :root{color-scheme:dark;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;background:#0c0922;color:#f4f3ff}
+    *{box-sizing:border-box}
+    body{margin:0;min-height:100vh;background:radial-gradient(ellipse 90% 40% at 15% 0%,#372387 0%,transparent 75%),radial-gradient(ellipse 75% 45% at 100% 55%,#0b3150 0%,transparent 80%),#0c0922;line-height:1.65}
+    main,header,footer{width:min(1020px,calc(100% - 40px));margin-inline:auto}
+    header{display:flex;align-items:center;justify-content:space-between;padding:26px 0;gap:16px}
+    .logo{font-size:19px;font-weight:900;letter-spacing:2px}.logo span{color:#53caff}
+    a{color:#75d9ff}
+    header nav{display:flex;gap:20px;font-size:14px}nav a{text-decoration:none;color:#cecbe5}
+    .hero{padding:92px 0 65px;max-width:780px}
+    .eyebrow{color:#80dcff;font-size:13px;font-weight:700;letter-spacing:1.3px;text-transform:uppercase}
+    h1{font-size:clamp(40px,7vw,72px);line-height:1.08;letter-spacing:-2px;margin:16px 0 20px}
+    .gradient{background:linear-gradient(105deg,#a69aff,#39d5ff);background-clip:text;-webkit-background-clip:text;color:transparent}
+    .lead{font-size:clamp(17px,2.6vw,22px);color:#d4d0e8;max-width:680px;margin:0 0 28px}
+    .btn{display:inline-flex;align-items:center;justify-content:center;background:linear-gradient(115deg,#7364ff,#16bafa);color:#fff;text-decoration:none;font-weight:750;padding:14px 23px;border-radius:17px;box-shadow:0 12px 33px #1a93ee3d;min-height:50px}
+    .hint{color:#b0abc8;margin:15px 0;font-size:13px}
+    h2{font-size:clamp(25px,3vw,35px);line-height:1.2;margin:0 0 24px;letter-spacing:-.7px}
+    .features{padding:46px 0}
+    .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+    article{background:linear-gradient(145deg,#27214bdb,#161833d4);border:1px solid #ffffff1f;border-radius:22px;padding:23px}
+    article .symbol{font-size:30px;display:block;margin-bottom:12px}
+    h3{font-size:18px;line-height:1.35;margin:0 0 9px}
+    article p{font-size:14px;color:#c0bcd8;margin:0}
+    .callout{margin:65px 0;padding:32px;border-radius:26px;background:linear-gradient(115deg,#29205b,#0f3549);border:1px solid #ffffff24}
+    .callout p{color:#cbc8de;max-width:640px}
+    .support{padding:25px 0 65px}.support h3{margin-top:27px}
+    .support p{max-width:790px;color:#cbc7dc}
+    footer{border-top:1px solid #ffffff1e;padding:30px 0 46px;display:flex;justify-content:space-between;gap:18px;flex-wrap:wrap;font-size:13px;color:#b1abc5}
+    footer a{color:#dad9f3}
+    @media(max-width:700px){.hero{padding:54px 0 35px}.grid{grid-template-columns:1fr}.callout{margin:45px 0}.support{padding-bottom:38px}header nav{gap:12px}}
+  </style>
+  <script type="application/ld+json">
+  {"@context":"https://schema.org","@type":"SoftwareApplication","name":"RIVAYA","applicationCategory":"ProductivityApplication","operatingSystem":"iOS 16.0+","description":"Бесплатный трекер привычек, целей и прогресса с виджетами iPhone и шагами Apple Health.","url":"https://rivayaapp.com/","downloadUrl":"https://apps.apple.com/ru/app/rivaya/id6823716293","offers":{"@type":"Offer","price":"0","priceCurrency":"RUB"}}
+  </script>
+</head>
+<body>
+<header>
+  <div class="logo" aria-label="RIVAYA">RIVA<span>YA</span></div>
+  <nav><a href="#features">Возможности</a><a href="#support">Поддержка</a><a href="privacy.html">Конфиденциальность</a></nav>
+</header>
+<main>
+  <section class="hero">
+    <span class="eyebrow">RIVAYA · Привычки и цели</span>
+    <h1>Маленькие шаги.<br><span class="gradient">Большой прогресс.</span></h1>
+    <p class="lead">Планируй день, отмечай привычки, двигайся к своим целям и замечай результат. Без перегруженного интерфейса и лишних действий.</p>
+    <a class="btn" href="https://apps.apple.com/ru/app/rivaya/id6823716293" rel="noopener noreferrer">Скачать бесплатно в App Store</a>
+    <p class="hint">Для iPhone с iOS 16 или новее · Без рекламы и обязательной регистрации</p>
+  </section>
+  <section id="features" class="features">
+    <h2>Всё важное на одном экране</h2>
+    <div class="grid">
+      <article><span class="symbol" aria-hidden="true">✅</span><h3>Привычки на сегодня</h3><p>Отмечай выполненное, настраивай количественные цели и смотри, сколько осталось.</p></article>
+      <article><span class="symbol" aria-hidden="true">🎯</span><h3>План и цели</h3><p>Создавай личные цели, разбивай их на этапы и отслеживай накопления.</p></article>
+      <article><span class="symbol" aria-hidden="true">📊</span><h3>Прогресс</h3><p>Смотри результаты за неделю, месяц и год — без сложных таблиц.</p></article>
+      <article><span class="symbol" aria-hidden="true">📱</span><h3>Виджеты iPhone</h3><p>Круг прогресса и привычки прямо на домашнем экране. Нажатие открывает RIVAYA.</p></article>
+      <article><span class="symbol" aria-hidden="true">👟</span><h3>Шаги Apple Health</h3><p>RIVAYA читает реальные шаги с разрешения пользователя. Ручной ввод не нужен.</p></article>
+      <article><span class="symbol" aria-hidden="true">🔔</span><h3>Напоминания</h3><p>Выбирай время для привычек и целей, используй тихий режим.</p></article>
+    </div>
+  </section>
+  <section class="callout">
+    <h2>Начни с одной привычки</h2>
+    <p>RIVAYA бесплатна и не показывает рекламу. Данные сохраняются на устройстве; для переноса доступен экспорт и восстановление из файла. Облачной синхронизации в текущей версии нет.</p>
+    <a class="btn" href="https://apps.apple.com/ru/app/rivaya/id6823716293" rel="noopener noreferrer">Открыть RIVAYA в App Store</a>
+  </section>
+  <section id="support" class="support">
+    <h2>Поддержка RIVAYA</h2>
+    <h3>Есть вопрос или нашли ошибку?</h3>
+    <p>Напишите на <a href="mailto:support@rivayaapp.com">support@rivayaapp.com</a>. Укажите версию приложения, модель iPhone и последовательность действий. Не отправляйте пароли и личные данные.</p>
+    <h3>Нет шагов?</h3>
+    <p>Разрешите RIVAYA доступ к шагам Apple Health в настройках iPhone. Если данные не обновились, откройте приложение повторно. Шаги не вводятся вручную.</p>
+    <h3>Нет напоминаний?</h3>
+    <p>Проверьте разрешение уведомлений RIVAYA в настройках iPhone и режим «Фокусирование». Настройте время в самой RIVAYA.</p>
+    <h3>Перенос на другой телефон</h3>
+    <p>Перед удалением приложения сохраните экспорт данных в профиле. Автоматической облачной синхронизации в этой версии нет.</p>
+  </section>
+</main>
+<footer>
+  <span>© 2026 RIVAYA · Ismail Uzbaev</span>
+  <span><a href="privacy.html">Политика конфиденциальности</a></span>
+</footer>
+</body>
+</html>
