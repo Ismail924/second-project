@@ -1,0 +1,38 @@
+name: RIVAYA submit updated screenshots as independent product page draft
+on:
+  push:
+    branches: ['feature/rivaya-widget-polish-441']
+    paths: ['.github/workflows/rivaya-ppo-screenshots.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  ppo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 28
+    environment: app-store
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Chromium for accurate current RIVAYA interface screenshots
+        run: |
+          npm install --prefix "$RUNNER_TEMP/rivaya-web" playwright@1.62.1
+          node "$RUNNER_TEMP/rivaya-web/node_modules/playwright/cli.js" install --with-deps chromium
+      - name: Capture four current RIVAYA screens using non-personal sample data
+        env:
+          NODE_PATH: ${{ runner.temp }}/rivaya-web/node_modules
+        run: node rivaya-next/tests/capture-store-442.cjs
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+          working-directory: rivaya-next/ios
+      - name: Create iOS product page optimization draft and verify four images
+        working-directory: rivaya-next/ios
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+        run: bundle exec ruby scripts/ppo-screenshots.rb
