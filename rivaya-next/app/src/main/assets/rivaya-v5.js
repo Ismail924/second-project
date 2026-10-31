@@ -172,7 +172,7 @@
   const HOME_KEYS=['summary','tasks','habits','next','goals','steps','shared'];
   function homePrefs(){
     const raw=state.profile.homeLayout||{mode:'expanded'},clean=list=>[...new Set((Array.isArray(list)?list:[]).filter(k=>HOME_KEYS.includes(k)))];
-    return {mode:raw.mode==='simple'?'simple':'expanded',simple:Array.isArray(raw.simple)?clean(raw.simple):['summary','habits'],expanded:Array.isArray(raw.expanded)?clean(raw.expanded):[...HOME_KEYS]};
+    return {mode:raw.mode==='simple'?'simple':'expanded',simple:Array.isArray(raw.simple)?clean(raw.simple):['summary','habits'],expanded:Array.isArray(raw.expanded)?clean(raw.expanded):HOME_KEYS.filter(k=>k!=='shared')};
   }
   function greeting(){
     const h=new Date().getHours(),name=(state.profile?.name||'').trim();
@@ -211,7 +211,15 @@
     const goalTile=goal&&goal.type!=='task'?`<button class="v5-card v5-tile" data-nx="goal" data-id="${goal.id}"><span class="v5-cap">${t('Ближайшая цель','Next goal')}</span><b>${esc(goal.name)}</b>${bar(goalPct(goal),'thin')}<small>${goalPct(goal)}% · ${dueLabel(goal.deadline)}</small></button>`
       :`<button class="v5-card v5-tile" data-nx="new-goal"><span class="v5-cap">${t('Цель','Goal')}</span><b>${t('Поставь цель','Set a goal')}</b><small>${t('Свяжи её с привычками','Link it to your habits')}</small></button>`;
     const connected=activityConnected();
-    const stepsTile=`<div class="v5-card v5-tile v5-steps-tile"><button class="v5-tile-hit" ${connected?'data-nav="activity"':'data-nx="health-access"'} aria-label="${t('Шаги','Steps')}"></button><span class="v5-cap">${t('Шаги','Steps')}</span><div class="v5-steps-row">${ring(connected?stepPct():0,46,14,'v5-green')}<div><b>${connected?num(state.activity.steps):'—'}</b><small>${connected?t('из ','of ')+num(state.activity.stepGoal):t('Подключить','Connect')}</small></div></div>${healthKitDisclosure(true)}</div>`;
+    const stepWeek=(Array.isArray(state.activity.history)?state.activity.history:[]).slice(-7);
+    const weekMax=Math.max(1,...stepWeek.map(v=>Number(v)||0));
+    const weekBars=stepWeek.map((v,i)=>`<i class="rv45-step-bar ${i===stepWeek.length-1?'is-current':''}" style="height:${Math.max(12,Math.round((Number(v)||0)/weekMax*100))}%" aria-hidden="true"></i>`).join('');
+    const stepsTile=`<div class="v5-card v5-tile v5-steps-tile rv45-steps">
+      <button class="v5-tile-hit" ${connected?'data-nav="activity"':'data-nx="health-access"'} aria-label="${t('Шаги','Steps')}"></button>
+      <span class="v5-cap">👟 ${t('Шаги','Steps')}</span>
+      <div class="rv45-steps-content"><div class="v5-steps-row">${ring(connected?stepPct():0,46,14,'v5-green')}<div><b>${connected?num(state.activity.steps):'—'}</b><small>${connected?t('из ','of ')+num(state.activity.stepGoal):t('Подключить','Connect')}</small></div></div>
+      ${connected&&stepWeek.length? `<div class="rv45-step-bars" aria-label="${t('Шаги за неделю','Steps this week')}">${weekBars}</div>`:''}</div>
+      ${healthKitDisclosure(true)}</div>`;
     const lay=homePrefs(),visible=lay[lay.mode];
     const nextGoal=state.goals.find(g=>g.type==='regular'&&!goalIsComplete(g)&&g.steps.some(x=>!x.done));
     const activeGoals=state.goals.filter(g=>g.type!=='task'&&!goalIsComplete(g));
