@@ -4,6 +4,8 @@ on:
     branches: ['feature/rivaya-4.5-optional-shared-goals-steps']
     paths:
       - 'rivaya-next/ios/project.yml'
+      - 'rivaya-next/app/src/main/assets/account-ui.js'
+      - 'rivaya-next/app/src/main/assets/shared-service.js'
       - '.github/workflows/rivaya-45-testflight.yml'
   workflow_dispatch:
 permissions:
