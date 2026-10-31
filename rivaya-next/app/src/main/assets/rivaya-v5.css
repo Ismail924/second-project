@@ -288,3 +288,16 @@ html.v5 .modal-card,html.v5 .modal .sheet{background:var(--v5-s1)!important;bord
 .v5-today-completed[open] summary::after{transform:rotate(180deg)}
 .v5-today-completed .v5-completed-rows{padding-top:8px;border-top:1px solid var(--v5-line)}
 .v5-today-completed .v5-habit{min-height:56px}
+
+/* RIVAYA 4.5 — compact cards; preserves existing visual language and layout. */
+.v5 .v5-focus{padding-top:15px;padding-bottom:15px;gap:12px}
+.v5 .v5-focus-ring svg{max-width:102px;max-height:102px}
+.v5 .v5-focus-copy{gap:3px}
+.v5 .rv45-steps{gap:5px;min-height:0;padding-top:13px;padding-bottom:12px}
+.v5 .rv45-steps-content{display:flex;align-items:center;justify-content:space-between;gap:14px;width:100%;min-width:0}
+.v5 .rv45-steps .v5-steps-row{flex:0 0 auto;gap:10px}
+.v5 .rv45-step-bars{height:42px;display:flex;align-items:flex-end;justify-content:space-between;gap:5px;flex:1;max-width:148px;min-width:60px;opacity:.85}
+.v5 .rv45-step-bar{display:block;flex:1;max-width:14px;border-radius:6px 6px 3px 3px;background:linear-gradient(180deg,#7b5cff,#3fd0ff);min-height:5px}
+.v5 .rv45-step-bar.is-current{background:linear-gradient(180deg,#35e3d4,#4f9aff)}
+.v5 .rv45-steps .health-source-summary{margin-top:2px!important}
+@media(max-width:360px){.v5 .rv45-step-bars{max-width:90px;gap:3px}}
