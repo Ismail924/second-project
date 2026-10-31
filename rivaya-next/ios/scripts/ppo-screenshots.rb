@@ -99,26 +99,28 @@ FILES.each do |name|
  bytes=File.binread(path)
  abort('Not iPhone PNG') unless bytes.byteslice(0,8)=="\x89PNG\r\n\x1a\n".b && bytes.byteslice(16,8).unpack('N2')==[1320,2868]
  md5=Digest::MD5.hexdigest(bytes)
- old=existing.find{|x|x.dig('attributes','fileName')==name && x.dig('attributes','assetDeliveryState','state')=='COMPLETE'}
+ old=existing.find{|x|x.dig('attributes','fileName')==name}
  if old
-  puts "PPO image already uploaded: #{name}"
-  next
+  id=old.fetch('id')
+  puts "PPO image already reserved: #{name} (#{id}); check Apple processing without duplication"
+ else
+  req={data:{type:'appScreenshots',attributes:{fileName:name,fileSize:bytes.bytesize},
+      relationships:{appScreenshotSet:{data:{type:'appScreenshotSets',id:setid}}}}}
+  img=request(:post,'/v1/appScreenshots',req).fetch('data')
+  id=img.fetch('id')
+  pending_images(img.dig('attributes','uploadOperations'),bytes)
+  request(:patch,"/v1/appScreenshots/#{id}",{data:{type:'appScreenshots',id:id,attributes:{uploaded:true,sourceFileChecksum:md5}}})
  end
- req={data:{type:'appScreenshots',attributes:{fileName:name,fileSize:bytes.bytesize},
-    relationships:{appScreenshotSet:{data:{type:'appScreenshotSets',id:setid}}}}}
- img=request(:post,'/v1/appScreenshots',req).fetch('data')
- id=img.fetch('id')
- pending_images(img.dig('attributes','uploadOperations'),bytes)
- request(:patch,"/v1/appScreenshots/#{id}",{data:{type:'appScreenshots',id:id,attributes:{uploaded:true,sourceFileChecksum:md5}}})
- 30.times do
+ status=nil
+ 120.times do |attempt|
   d=request(:get,"/v1/appScreenshots/#{id}")
   status=d.dig('data','attributes','assetDeliveryState','state')
   break if status=='COMPLETE'
   abort("PPO screenshot failed: #{name}: #{status}") if status=='FAILED'
+  puts "Apple screenshot #{name}: processing #{status} (attempt #{attempt+1})" if attempt%10==0
   sleep 5
  end
- result=request(:get,"/v1/appScreenshots/#{id}")
- abort("Apple has not processed PPO screenshot #{name}") unless result.dig('data','attributes','assetDeliveryState','state')=='COMPLETE'
+ abort("Apple has not processed PPO screenshot #{name}: #{status}") unless status=='COMPLETE'
  puts "APPLE PPO image COMPLETE: #{name}"
 end
 count=Array(request(:get,"/v1/appScreenshotSets/#{setid}/appScreenshots?limit=100")['data']).count
