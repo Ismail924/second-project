@@ -56,7 +56,7 @@
  function shared(){
   if(!A.active)return account();
   const goals=S.owner===A.owner?S.cache:[],g=goals.find(g=>g.id===selected);
-  if(mode==='invite')return box(t('Приглашение','Invitation'),`<p>${t('Одно приглашение — один участник. Код действует 7 дней.','One invitation admits one participant. The code expires in 7 days.')}</p><textarea class="nx-invite" readonly>${esc(invite)}</textarea>${b(t('Поделиться кодом','Share code'),'share-invite')}${b(t('Назад','Back'),'shared')}${info()}`);
+  if(mode==='invite')return box(t('Приглашение','Invitation'),`<p>${t('Одно приглашение — один участник. Код действует 7 дней.','One invitation admits one participant. The code expires in 7 days.')}</p><textarea class="nx-invite" readonly>${esc(invite)}</textarea><div class="nx-actions">${b(t('Скопировать код','Copy code'),'copy-invite')}${b(t('Поделиться приглашением','Share invitation'),'share-invite')}</div>${b(t('Назад','Back'),'shared')}${info()}`);
   if(['new-shared','join','new-shared-step'].includes(mode))return box(({join:t('Присоединиться по коду','Join with code'),'new-shared':t('Совместная цель','Shared goal'),'new-shared-step':t('Задание участника','Participant task')})[mode],`<form id="shared-form">${mode==='join'?input('token',t('Код или сообщение с приглашением','Code or invitation message'),'text','required maxlength="2048" autocapitalize="none" autocorrect="off"'):input('title',t('Название','Title'),'text','required maxlength="120"')}${mode==='new-shared'||mode==='join'?input('name',t('Твоё имя для участников','Your name for participants'),'text','required maxlength="60"'): `<label>${t('Участник','Participant')}<select data-account-field="assigned_to">${g.members.map(m=>`<option value="${m.user_id}" ${fields.assigned_to===m.user_id?'selected':''}>${esc(m.name)}${m.user_id===A.owner?t(' (ты)',' (you)'):''}</option>`).join('')}</select></label>${input('deadline',t('Срок — необязательно','Due date — optional'),'date')}`}<button type="submit" class="nx-button nx-primary" ${busy?'disabled':''}>${t('Сохранить','Save')}</button></form>${b(t('Отмена','Cancel'),'shared')}${info()}`);
   if(!g)return box(t('Совместные цели','Shared goals'),`<p class="nx-muted">${t('Создай общую цель и отправь другу приглашение. Он войдёт в свой аккаунт и вставит код здесь.','Create a shared goal and send an invitation. Your friend signs into their own account and pastes the code here.')}</p>${b('＋ '+t('Создать','Create'),'new-shared')}${b(t('Ввести код приглашения','Enter invitation code'),'join')}<p>${busy?t('Загрузка…','Loading…'):''}</p>${goals.map(g=>`<button class="nx-goal" data-nx="account-open-shared" data-id="${g.id}"><b>${esc(g.title)}</b><small>${g.steps.filter(s=>s.done).length} / ${g.steps.length} · ${g.members.length} ${t('участников','participants')}</small></button>`).join('')}${info()}${error?b(t('Повторить попытку','Try again'),'refresh-shared'):''}`);
   const names=Object.fromEntries(g.members.map(m=>[m.user_id,m.name]));
@@ -67,6 +67,18 @@
   if(busy)return;
   const a=name.replace('account-','');error='';editVersion++;
   if(!A.active&&['shared','new-shared','join'].includes(a)){pendingSharedAction=a;mode='login';fields={importGuest:true};currentView='account';render();return}
+  // Sharing and copying are local operations: do not lock and re-render the entire UI.
+  if(a==='copy-invite'||a==='share-invite'){
+   const message='RIVAYA\n'+t('Приглашение в совместную цель. Открой План → Совместные цели → Ввести код:','Shared goal invitation. Open Plan → Shared goals → Enter code:')+'\n'+invite;
+   try{
+    if(a==='share-invite'&&window.VektorNative?.shareText){window.VektorNative.shareText(message);return}
+    if(a==='share-invite'&&navigator.share){await navigator.share({text:message});return}
+    if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(a==='copy-invite'?invite:message)}
+    else{const input=document.createElement('textarea');input.value=a==='copy-invite'?invite:message;input.style.position='fixed';input.style.opacity='0';document.body.appendChild(input);input.select();const ok=document.execCommand('copy');input.remove();if(!ok)throw Error('copy_failed')}
+    error=t('Скопировано','Copied');
+   }catch(e){if(e?.name!=='AbortError')error=t('Не получилось скопировать. Выдели код в поле.','Copy failed. Select the code in the field.')}
+   render();return;
+  }
   if(a==='profile'){pendingSharedAction='';mode='';currentView='profile';render();return}
   if(['login','signup','confirm','recover','reset','delete'].includes(a)){mode=a;fields={email:fields.email||''};currentView='account';render();return}
   if(a==='conflicts'){mode=a;choices=[];currentView='account';render();return}
@@ -115,5 +127,5 @@
  render();A.init().then(()=>{booting=false;render();if(A.active)A.sync().catch(e=>{error=message(e);render()})}).catch(e=>{booting=false;A.locked=true;error=message(e);render()});
  window.addEventListener('online',()=>{if(A.active)A.sync().catch(()=>{});refreshShared()});
  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'&&A.active){A.sync().catch(()=>{});refreshShared()}});
- setInterval(refreshShared,20000);
+ setInterval(refreshShared,60000);
 })();
