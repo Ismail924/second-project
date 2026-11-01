@@ -43,3 +43,5 @@ jobs:
         with:
           name: RIVAYA-4.5-verified-real-6.1-screenshots
           path: appstore-shots-61
+
+# Retry with Apple APP_IPHONE_61 1179x2556 resolution.
