@@ -1,6 +1,6 @@
 const {chromium}=require('playwright');
 const fs=require('fs'), http=require('http'), path=require('path'), assert=require('assert');
-const root=path.resolve(__dirname,'../app/src/main/assets'),out=path.resolve(process.cwd(),'appstore-shots-442');
+const root=path.resolve(__dirname,'../app/src/main/assets'),small=process.env.RIVAYA_SCREENSHOT_SIZE_61==='1',out=path.resolve(process.cwd(),small?'appstore-shots-61':'appstore-shots-442');
 const serve=http.createServer((req,res)=>{
  const name=req.url.split('?')[0]==='/'?'/index.html':decodeURIComponent(req.url.split('?')[0]);
  const file=path.resolve(root,'.'+name);
@@ -13,7 +13,7 @@ const serve=http.createServer((req,res)=>{
  await new Promise(resolve=>serve.listen(0,'127.0.0.1',resolve));fs.mkdirSync(out,{recursive:true});
  const browser=await chromium.launch();
  try{
-  const page=await browser.newPage({viewport:{width:440,height:956},deviceScaleFactor:3,isMobile:true,hasTouch:true,locale:'ru-RU',timezoneId:'Europe/Moscow'});
+  const page=await browser.newPage({viewport:small?{width:390,height:844}:{width:440,height:956},deviceScaleFactor:3,isMobile:true,hasTouch:true,locale:'ru-RU',timezoneId:'Europe/Moscow'});
   const errors=[];page.on('pageerror',e=>errors.push(String(e)));
   await page.addInitScript(()=>{window.RIVAYA_IOS=true;window.VektorNative={
     requestSteps:()=>{},requestStepAccess:()=>{},refreshSteps:()=>{},
@@ -76,6 +76,6 @@ const serve=http.createServer((req,res)=>{
     console.log('CAPTURED '+filename+'.png '+buffer.byteLength+' bytes');
   }
   assert.deepEqual(errors,[],'Browser render errors');
-  console.log('PASS: 4 authentic RIVAYA 4.5 interface screenshots (iPhone 16 Pro Max 1320x2868)');
+  console.log('PASS: 4 authentic RIVAYA 4.5 interface screenshots');
  } finally {await browser.close();serve.close();}
 })().catch(e=>{console.error(e);serve.close();process.exitCode=1;});
