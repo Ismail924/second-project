@@ -1,0 +1,45 @@
+name: RIVAYA 4.5 replace old 6.1-inch App Store screenshots
+on:
+  push:
+    branches: ['feature/rivaya-4.5-optional-shared-goals-steps']
+    paths: ['.github/workflows/rivaya-45-replace-61.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: rivaya-45-replace-61
+  cancel-in-progress: false
+jobs:
+  images:
+    runs-on: macos-15
+    timeout-minutes: 55
+    environment: app-store
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Capture and verify real RIVAYA on 6.1-inch screen
+        env:
+          RIVAYA_SCREENSHOT_SIZE_61: '1'
+        run: |
+          npm install --prefix "$RUNNER_TEMP/rivaya-web" playwright@1.62.1
+          node "$RUNNER_TEMP/rivaya-web/node_modules/playwright/cli.js" install --with-deps chromium
+          NODE_PATH="$RUNNER_TEMP/rivaya-web/node_modules" node rivaya-next/tests/capture-store-442.cjs
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+          working-directory: rivaya-next/ios
+      - name: Verify Apple uploads then replace three outdated 6.1 images
+        working-directory: rivaya-next/ios
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+        run: bundle exec ruby scripts/upload-store-screenshots-61-45.rb
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: RIVAYA-4.5-verified-real-6.1-screenshots
+          path: appstore-shots-61
