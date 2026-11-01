@@ -38,3 +38,5 @@ jobs:
           FASTLANE_HIDE_CHANGELOG: 'true'
           FASTLANE_OPT_OUT_USAGE: 'true'
         run: bundle exec fastlane ios submit_existing_45
+
+# Retry now that Apple has confirmed both complete replacement screenshot sets.
