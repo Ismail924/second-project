@@ -10,7 +10,7 @@ require 'jwt'
 
 APP_ID='6823716293'
 VERSION='4.5.0'
-BUILD_NUMBER='46003'
+BUILD_NUMBER='46004'
 RU_NOTES='Обновили экран «Сегодня»: компактные шаги с недельной диаграммой и более аккуратный «Фокус дня». Улучшили приглашения в совместные цели: теперь код можно скопировать или отправить другу. Снизили лишнюю нагрузку при работе совместных целей.'
 EN_NOTES='Refined Today with a compact Steps card, weekly chart, and slightly smaller Daily Focus. Improved shared goal invitations with easy copying and sharing. Reduced unnecessary refresh work.'
 
