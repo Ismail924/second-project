@@ -33,7 +33,7 @@ submissions.each do |s|
  state=s.dig('attributes','state')
  next unless ['READY_FOR_REVIEW','WAITING_FOR_REVIEW','IN_REVIEW','UNRESOLVED_ISSUES'].include?(state)
  items=Array(api("/v1/reviewSubmissions/#{s['id']}/items?limit=100")['data'])
- puts "REVIEW #{s['id']} state=#{state} items=#{items.map{|i|[i['type'],i.dig('attributes','state'),i['relationships'].keys]}.inspect}"
+ puts "REVIEW #{s['id']} state=#{state} items=#{items.map{|i|[i['type'],i.dig('attributes','state'),(i['relationships']||{}).keys]}.inspect}"
 end
 exps=Array(api("/v1/apps/#{APP}/appStoreVersionExperimentsV2?limit=100")['data'])
 exps.each {|e| puts "PPO #{e['id']} #{e.dig('attributes','name')} #{e.dig('attributes','state')}"}
