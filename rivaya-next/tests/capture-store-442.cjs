@@ -13,7 +13,7 @@ const serve=http.createServer((req,res)=>{
  await new Promise(resolve=>serve.listen(0,'127.0.0.1',resolve));fs.mkdirSync(out,{recursive:true});
  const browser=await chromium.launch();
  try{
-  const page=await browser.newPage({viewport:small?{width:390,height:844}:{width:440,height:956},deviceScaleFactor:3,isMobile:true,hasTouch:true,locale:'ru-RU',timezoneId:'Europe/Moscow'});
+  const page=await browser.newPage({viewport:small?{width:393,height:852}:{width:440,height:956},deviceScaleFactor:3,isMobile:true,hasTouch:true,locale:'ru-RU',timezoneId:'Europe/Moscow'});
   const errors=[];page.on('pageerror',e=>errors.push(String(e)));
   await page.addInitScript(()=>{window.RIVAYA_IOS=true;window.VektorNative={
     requestSteps:()=>{},requestStepAccess:()=>{},refreshSteps:()=>{},
