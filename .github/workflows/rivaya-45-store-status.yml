@@ -1,0 +1,27 @@
+name: RIVAYA 4.5 App Store read-only status
+on:
+  push:
+    branches: ['feature/rivaya-4.5-optional-shared-goals-steps']
+    paths: ['.github/workflows/rivaya-45-store-status.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  status:
+    runs-on: ubuntu-latest
+    environment: app-store
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+          working-directory: rivaya-next/ios
+      - name: Read Apple App Store versions and TestFlight states
+        working-directory: rivaya-next/ios
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+        run: bundle exec ruby scripts/inspect-441-appstore.rb
