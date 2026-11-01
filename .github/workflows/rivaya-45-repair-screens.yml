@@ -1,0 +1,44 @@
+name: RIVAYA 4.5 replace broken store screenshots with verified real screens
+on:
+  push:
+    branches: ['feature/rivaya-4.5-optional-shared-goals-steps']
+    paths:
+      - '.github/workflows/rivaya-45-repair-screens.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: rivaya-45-replace-screens
+  cancel-in-progress: false
+jobs:
+  repair:
+    runs-on: macos-15
+    timeout-minutes: 40
+    environment: app-store
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Capture isolated REAL RIVAYA 4.5 screens and reject any account errors
+        run: |
+          npm install --prefix "$RUNNER_TEMP/rivaya-web" playwright@1.62.1
+          node "$RUNNER_TEMP/rivaya-web/node_modules/playwright/cli.js" install --with-deps chromium
+          NODE_PATH="$RUNNER_TEMP/rivaya-web/node_modules" node rivaya-next/tests/capture-store-442.cjs
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+          working-directory: rivaya-next/ios
+      - name: Replace incorrect images in 4.5 draft ONLY after ALL replacement images pass validation
+        working-directory: rivaya-next/ios
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+        run: bundle exec ruby scripts/upload-store-screenshots-45.rb
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: RIVAYA-4.5-verified-replacement-screens
+          path: appstore-shots-442
