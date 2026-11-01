@@ -42,3 +42,5 @@ jobs:
         with:
           name: RIVAYA-4.5-verified-replacement-screens
           path: appstore-shots-442
+
+# Retry after Apple asset processing timeout: reuse partially uploaded screenshots.
