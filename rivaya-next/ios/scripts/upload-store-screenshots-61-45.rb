@@ -76,7 +76,7 @@ valid_names.each do |name|
   bytes=File.binread(file)
   abort("Invalid PNG screenshot #{name}") unless bytes.start_with?("\x89PNG\r\n\x1a\n".b)
   dimensions=bytes.byteslice(16,8).unpack('N2')
-  abort("Invalid iPhone 16 Pro Max screenshot dimensions #{name}: #{dimensions.join('x')}") unless dimensions==[1170,2532]
+  abort("Invalid iPhone 16 Pro Max screenshot dimensions #{name}: #{dimensions.join('x')}") unless dimensions==[1179,2556]
   digest=Digest::MD5.hexdigest(bytes)
   matching=previous.find{|x|x.dig('attributes','fileName')==name &&
      x.dig('attributes','sourceFileChecksum')==digest &&
