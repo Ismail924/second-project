@@ -68,7 +68,7 @@ end
 set_id=set.fetch('id')
 previous=Array(asc(:get,"/v1/appScreenshotSets/#{set_id}/appScreenshots?limit=100")['data'])
 valid_names=%w[01_today.png 02_plan.png 03_progress.png 04_profile.png]
-abort("Existing screenshot set has #{previous.size} assets; too many for safe replacement") if previous.size>6
+abort("Existing screenshot set has #{previous.size} assets; inspect before replacing") if previous.size>10
 ids=[]
 valid_names.each do |name|
   file=File.join(FOLDER,name)
@@ -80,21 +80,26 @@ valid_names.each do |name|
   digest=Digest::MD5.hexdigest(bytes)
   matching=previous.find{|x|x.dig('attributes','fileName')==name &&
      x.dig('attributes','sourceFileChecksum')==digest &&
-     x.dig('attributes','assetDeliveryState','state')=='COMPLETE'}
-  if matching
+     %w[COMPLETE UPLOAD_COMPLETE PROCESSING].include?(x.dig('attributes','assetDeliveryState','state'))}
+  if matching && matching.dig("attributes","assetDeliveryState","state")=="COMPLETE"
     puts "Already verified screenshot #{name}"
-    ids << matching.fetch('id')
+    ids << matching.fetch("id")
     next
   end
   reservation={data:{type:'appScreenshots',attributes:{fileName:name,fileSize:bytes.bytesize},
     relationships:{appScreenshotSet:{data:{type:'appScreenshotSets',id:set_id}}}}}
-  rec=asc(:post,'/v1/appScreenshots',reservation).fetch('data')
-  id=rec.fetch('id')
-  upload_parts(rec.dig('attributes','uploadOperations'),bytes)
-  commit={data:{type:'appScreenshots',id:id,attributes:{uploaded:true,sourceFileChecksum:digest}}}
-  asc(:patch,"/v1/appScreenshots/#{id}",commit)
-  puts "Committed #{name} to Apple App Store Connect"
-  24.times do
+  if matching
+    id=matching.fetch("id")
+    puts "Resuming Apple processing for existing #{name}"
+  else
+    rec=asc(:post,'/v1/appScreenshots',reservation).fetch('data')
+    id=rec.fetch('id')
+    upload_parts(rec.dig('attributes','uploadOperations'),bytes)
+    commit={data:{type:'appScreenshots',id:id,attributes:{uploaded:true,sourceFileChecksum:digest}}}
+    asc(:patch,"/v1/appScreenshots/#{id}",commit)
+    puts "Committed #{name} to Apple App Store Connect"
+  end
+  150.times do
     curr=asc(:get,"/v1/appScreenshots/#{id}")
     state=curr.dig('data','attributes','assetDeliveryState','state')
     if state=='COMPLETE'
@@ -102,7 +107,7 @@ valid_names.each do |name|
       break
     end
     abort("Screenshot failed Apple processing: #{name}: #{curr.dig('data','attributes','assetDeliveryState')}") if state=='FAILED'
-    sleep 5
+    sleep 8
   end
   final=asc(:get,"/v1/appScreenshots/#{id}").dig('data','attributes','assetDeliveryState','state')
   abort("Screenshot #{name} not confirmed processed: #{final}") unless final=='COMPLETE'
