@@ -1,0 +1,79 @@
+name: RIVAYA 4.5 App Store submission - authentic screenshots and metadata
+on:
+  push:
+    branches: ['feature/rivaya-4.5-optional-shared-goals-steps']
+    paths: ['.github/workflows/rivaya-45-appstore-submit.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: rivaya-45-store-submit
+  cancel-in-progress: false
+jobs:
+  appstore:
+    runs-on: macos-15
+    timeout-minutes: 90
+    environment: app-store
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: true
+          working-directory: rivaya-next/ios
+      - name: Verify source safety and create authentic iPhone screenshots
+        run: |
+          set -euo pipefail
+          node --check rivaya-next/app/src/main/assets/account-ui.js
+          node --check rivaya-next/app/src/main/assets/rivaya-v5.js
+          node rivaya-next/tests/state-check.cjs
+          npm install --prefix "$RUNNER_TEMP/rivaya-web" playwright@1.62.1
+          node "$RUNNER_TEMP/rivaya-web/node_modules/playwright/cli.js" install --with-deps chromium
+          NODE_PATH="$RUNNER_TEMP/rivaya-web/node_modules" node rivaya-next/tests/capture-store-442.cjs
+      - name: Prepare exact VALID RIVAYA 4.5 (46004) and localized What's New
+        working-directory: rivaya-next/ios
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+        run: |
+          set -euo pipefail
+          passed=0
+          for attempt in $(seq 1 35); do
+            if bundle exec ruby scripts/prepare-45-store-release.rb; then passed=1; break; fi
+            echo "App Store 4.5 preparation not ready; attempt $attempt/35"
+            sleep 60
+          done
+          test "$passed" -eq 1
+      - name: Upload genuine screenshots from current RIVAYA 4.5 source
+        working-directory: rivaya-next/ios
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+        run: bundle exec ruby scripts/upload-store-screenshots-45.rb
+      - name: Update App Store description and keywords
+        working-directory: rivaya-next/ios
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+        run: bundle exec ruby scripts/aso-update-45.rb
+      - name: Submit RIVAYA 4.5 build 46004 to Apple review with automatic release
+        working-directory: rivaya-next/ios
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8_BASE64: ${{ secrets.ASC_KEY_P8_BASE64 }}
+          FASTLANE_SKIP_UPDATE_CHECK: 'true'
+          FASTLANE_HIDE_CHANGELOG: 'true'
+          FASTLANE_OPT_OUT_USAGE: 'true'
+        run: bundle exec fastlane ios submit_existing_45
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: RIVAYA-4.5-actual-ui-screenshots
+          path: appstore-shots-442
