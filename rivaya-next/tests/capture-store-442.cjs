@@ -20,6 +20,12 @@ const serve=http.createServer((req,res)=>{
     shareText:()=>{},publishWidgetSnapshot:()=>{},getSteps:()=>{},
     openHealthSettings:()=>{}
   }});
+  // Marketing captures are isolated offline previews, never a signed-in workspace.
+  // Do not initialize live account vault without a native secure-session bridge.
+  await page.route('**/backend-config.js',route=>route.fulfill({
+    contentType:'text/javascript',
+    body:'window.RIVAYA_BACKEND={enabled:false,appleEnabled:false};'
+  }));
   await page.goto('http://127.0.0.1:'+serve.address().port+'/index.html',{waitUntil:'domcontentloaded'});
   if(await page.locator('#onboardingModal.open').count())await page.locator('#finishOnboardingBtn').click();
   await page.evaluate(()=>{
@@ -61,12 +67,15 @@ const serve=http.createServer((req,res)=>{
     await page.waitForTimeout(300);
     await page.evaluate(()=>{window.scrollTo(0,0);document.querySelectorAll('.toast').forEach(x=>x.classList.remove('show'))});
     assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2),nav+' horizontal overflow');
+    const visible=await page.locator('body').innerText();
+    assert(!/Не удалось открыть защищённую сессию|Не удалось завершить действие|Подготовка данных|Открыть гостевой режим/.test(visible),nav+' shows fatal account error');
+    assert(visible.includes(({today:'Сегодня',plan:'План',progress:'Прогресс',profile:'Профиль'})[nav]),nav+' screen missing');
     await page.screenshot({path:path.join(out,filename+'.png'),fullPage:false,animations:'disabled'});
     const buffer=fs.readFileSync(path.join(out,filename+'.png'));
     assert(buffer.byteLength>25000,nav+' screenshot looks empty');
     console.log('CAPTURED '+filename+'.png '+buffer.byteLength+' bytes');
   }
   assert.deepEqual(errors,[],'Browser render errors');
-  console.log('PASS: 4 authentic RIVAYA 4.4.1 interface screenshots (iPhone 16 Pro Max 1320x2868)');
+  console.log('PASS: 4 authentic RIVAYA 4.5 interface screenshots (iPhone 16 Pro Max 1320x2868)');
  } finally {await browser.close();serve.close();}
 })().catch(e=>{console.error(e);serve.close();process.exitCode=1;});
