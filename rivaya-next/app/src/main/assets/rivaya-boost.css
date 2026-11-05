@@ -1,0 +1,75 @@
+/* RIVAYA 4.5 — celebration, freeze, starters, share card */
+.rb-confetti{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:9999}
+@keyframes rbPop{0%{transform:scale(1)}35%{transform:scale(1.045)}100%{transform:scale(1)}}
+.rb-pop{animation:rbPop .55s cubic-bezier(.2,.9,.3,1.3)}
+@media (prefers-reduced-motion:reduce){.rb-pop{animation:none}}
+
+/* share buttons */
+.v5 .rb-share{margin-top:10px;min-height:38px;padding:0 14px;border-radius:12px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.08);color:var(--v5-t1);font-weight:750;font-size:13.5px}
+.v5 .rb-share.strong{border:0;background:linear-gradient(135deg,#FF8A3D,#FF4D6D);color:#fff;box-shadow:0 6px 18px rgba(255,90,80,.35)}
+.v5 .rb-share-wide{width:100%}
+.v5 .rb-link{margin-top:8px;border:0;background:none;padding:4px 0;color:var(--v5-a2);font-weight:700;font-size:13.5px}
+
+/* freeze */
+.v5 .rb-freeze-link{align-self:center;border:0;background:none;padding:2px 8px;color:#93C5FD;font-weight:650;font-size:13px;margin-top:-6px}
+.v5-focus.rb-frozen{border-color:rgba(147,197,253,.4);background:radial-gradient(120% 140% at 0% 0%,rgba(96,165,250,.26),transparent 60%),var(--v5-s1)}
+.v5-focus.rb-frozen .v5-ring-val{stroke:#93C5FD}
+.v5-day.frozen .v5-ring-track{stroke:rgba(147,197,253,.55)}
+.v5-day.frozen .v5-day-ring b{color:#93C5FD}
+.v5-day.frozen>span::after{content:" ❄";font-size:9px}
+.v5-heat i[data-l=z]{background:rgba(147,197,253,.45);box-shadow:inset 0 0 0 1px rgba(147,197,253,.7)}
+.rb-rescue{display:flex;align-items:center;gap:12px;padding:12px 12px 12px 14px;border-radius:18px;border:1px solid rgba(147,197,253,.35);background:linear-gradient(135deg,rgba(96,165,250,.18),rgba(123,92,255,.12))}
+.rb-rescue-icon{font-size:26px}
+.rb-rescue-copy{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.rb-rescue-copy b{font-size:14.5px}
+.rb-rescue-copy span{font-size:12.5px;color:var(--v5-t2)}
+.rb-rescue-actions{display:flex;gap:6px}
+.rb-rescue-actions button{border:0;border-radius:11px;min-height:36px;padding:0 12px;background:#3B82F6;color:#fff;font-weight:750;font-size:13px}
+.rb-rescue-actions button.ghost{background:rgba(255,255,255,.08);color:var(--v5-t2);padding:0 10px}
+
+/* starters */
+.rb-starters{margin-top:4px;padding:4px 2px 2px}
+.rb-starters-title{font-size:13px;font-weight:700;color:var(--v5-t2);text-align:center;margin-bottom:10px}
+.rb-starter-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.rb-starter-grid button{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-height:64px;padding:10px 12px;border-radius:14px;border:1px solid var(--v5-line);background:var(--v5-s2);color:var(--v5-t1);text-align:left}
+.rb-starter-grid button span{font-size:20px}
+.rb-starter-grid button b{font-size:13.5px;font-weight:700;line-height:1.2}
+.rb-starter-grid button small{font-size:11.5px;color:var(--v5-t3)}
+.rb-starter-grid button:disabled{opacity:.45}
+.rb-starter-grid button:disabled b::after{content:" ✓"}
+
+/* bottom sheet */
+.rb-sheet-wrap{position:fixed;inset:0;z-index:9000;display:flex;align-items:flex-end;justify-content:center}
+.rb-sheet-backdrop{position:absolute;inset:0;background:rgba(0,0,0,.55);opacity:0;transition:opacity .2s}
+.rb-sheet{position:relative;width:min(100%,520px);max-height:92vh;overflow:auto;padding:22px 18px calc(18px + env(safe-area-inset-bottom,0px));border-radius:26px 26px 0 0;background:var(--v5-s1,#15152A);color:var(--v5-t1,#fff);text-align:center;transform:translateY(30px);opacity:0;transition:transform .25s ease,opacity .2s}
+.rb-sheet-wrap.open .rb-sheet-backdrop{opacity:1}
+.rb-sheet-wrap.open .rb-sheet{transform:none;opacity:1}
+.rb-sheet h2{font-size:21px;font-weight:800;margin:6px 0}
+.rb-sheet p{font-size:14px;line-height:1.45;color:var(--v5-t2,#B8B8D1)}
+.rb-sheet p b{color:var(--v5-t1,#fff)}
+.rb-sheet-icon{font-size:40px}
+.rb-reasons{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}
+.rb-reasons button{display:flex;flex-direction:column;align-items:center;gap:4px;min-height:74px;border-radius:16px;border:1px solid var(--v5-line,rgba(255,255,255,.08));background:var(--v5-s2,#1C1C36);color:inherit;font:inherit;font-weight:700;font-size:14px}
+.rb-reasons button span{font-size:24px}
+.rb-sheet-cancel{width:100%;margin-top:12px;min-height:46px;border:0;border-radius:14px;background:transparent;color:var(--v5-t2,#B8B8D1);font:inherit;font-weight:700}
+.rb-share-preview{display:flex;flex-direction:column;align-items:center;gap:12px}
+.rb-share-img{width:min(62vw,300px);aspect-ratio:9/16;border-radius:18px;overflow:hidden;background:#140826;display:grid;place-items:center;box-shadow:0 18px 50px rgba(0,0,0,.45)}
+.rb-share-img img{width:100%;height:100%;object-fit:cover;display:block}
+.rb-spinner{width:34px;height:34px;border-radius:50%;border:3px solid rgba(255,255,255,.15);border-top-color:#A78BFA;animation:rbSpin .8s linear infinite}
+@keyframes rbSpin{to{transform:rotate(360deg)}}
+.rb-themes{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.rb-themes button{display:flex;align-items:center;gap:6px;min-height:36px;padding:0 12px;border-radius:999px;border:1px solid var(--v5-line,rgba(255,255,255,.1));background:var(--v5-s2,#1C1C36);color:inherit;font:inherit;font-size:13px;font-weight:700}
+.rb-themes button[aria-pressed=true]{border-color:#A78BFA;background:rgba(123,92,255,.2)}
+.rb-dot{width:14px;height:14px;border-radius:50%;display:inline-block}
+.rb-dot.violet{background:linear-gradient(135deg,#C4B5FD,#7C3AED)}
+.rb-dot.fire{background:linear-gradient(135deg,#FFD48A,#F97316)}
+.rb-dot.aqua{background:linear-gradient(135deg,#A5F3FC,#0891B2)}
+.rb-share-go{width:100%;max-width:340px}
+.rb-modes{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;border-radius:14px;background:var(--v5-s2,#1C1C36);width:min(100%,320px)}
+.rb-modes button{min-height:38px;border:0;border-radius:10px;background:transparent;color:var(--v5-t3,#8A8AA8);font:inherit;font-weight:750;font-size:14px}
+.rb-modes button[aria-pressed=true]{background:var(--v5-s3,#26264A);color:var(--v5-t1,#fff)}
+.rb-modes button:disabled{opacity:.35}
+.rb-share-img video,.rb-share-img canvas{width:100%;height:100%;object-fit:cover;display:block}
+.rb-progress{width:min(62vw,300px);height:5px;border-radius:5px;background:rgba(255,255,255,.1);overflow:hidden}
+.rb-progress i{display:block;height:100%;width:0;background:linear-gradient(90deg,#7B5CFF,#3FD0FF);transition:width .2s linear}
+.rb-share-go:disabled{opacity:.6}

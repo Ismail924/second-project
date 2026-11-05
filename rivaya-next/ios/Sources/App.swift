@@ -9,6 +9,7 @@ func rvL(_ ru: String, _ en: String) -> String {
 }
 import UniformTypeIdentifiers
 import UserNotifications
+import StoreKit
 
 @main
 final class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -72,7 +73,11 @@ final class RivayaController: UIViewController, WKScriptMessageHandler, WKNaviga
           refreshSteps: () => window.webkit.messageHandlers.rivaya.postMessage({action:'refreshSteps'}),
           requestStepAccess: () => window.webkit.messageHandlers.rivaya.postMessage({action:'requestStepAccess'}),
           openHealthSettings: () => window.webkit.messageHandlers.rivaya.postMessage({action:'openHealthSettings'}),
-          openExternal: url => window.webkit.messageHandlers.rivaya.postMessage({action:'openExternal',url})
+          openExternal: url => window.webkit.messageHandlers.rivaya.postMessage({action:'openExternal',url}),
+          haptic: style => window.webkit.messageHandlers.rivaya.postMessage({action:'haptic',style:String(style||'light')}),
+          shareImage: data => window.webkit.messageHandlers.rivaya.postMessage({action:'shareImage',data}),
+          shareVideo: data => window.webkit.messageHandlers.rivaya.postMessage({action:'shareVideo',data}),
+          requestReview: () => window.webkit.messageHandlers.rivaya.postMessage({action:'requestReview'})
         };
         """
         configuration.userContentController.addUserScript(WKUserScript(source: bridge, injectionTime: .atDocumentStart, forMainFrameOnly: true))
@@ -172,6 +177,43 @@ final class RivayaController: UIViewController, WKScriptMessageHandler, WKNaviga
         case "openHealthSettings":
             showHealthHelp()
         case "openExternal": if let text = body["url"] as? String { openExternal(text) }
+        case "haptic":
+            switch (body["style"] as? String) ?? "light" {
+            case "success": UINotificationFeedbackGenerator().notificationOccurred(.success)
+            case "soft": UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+            default: UIImpactFeedbackGenerator(style: .light).impactOccurred()
+            }
+        case "shareImage":
+            // A generated 1080x1920 story card (data:image/jpeg;base64,...). Size-capped and decoded locally.
+            if let text = body["data"] as? String, text.count <= 15_000_000, presentedViewController == nil,
+               text.hasPrefix("data:image/jpeg;base64,") || text.hasPrefix("data:image/png;base64,"),
+               let comma = text.firstIndex(of: ","),
+               let data = Data(base64Encoded: String(text[text.index(after: comma)...])),
+               let image = UIImage(data: data) {
+                let controller = UIActivityViewController(activityItems: [image], applicationActivities: nil)
+                controller.popoverPresentationController?.sourceView = view
+                controller.popoverPresentationController?.sourceRect = CGRect(x: view.bounds.midX, y: view.bounds.midY, width: 1, height: 1)
+                present(controller, animated: true)
+            }
+        case "shareVideo":
+            // A generated ~5 s story video (data:video/mp4;base64,...), written to a temporary file for the share sheet.
+            if let text = body["data"] as? String, text.count <= 40_000_000, presentedViewController == nil,
+               text.hasPrefix("data:video/mp4") || text.hasPrefix("data:video/quicktime"),
+               let comma = text.firstIndex(of: ","),
+               let data = Data(base64Encoded: String(text[text.index(after: comma)...])), !data.isEmpty {
+                let url = FileManager.default.temporaryDirectory.appendingPathComponent("RIVAYA-streak.mp4")
+                do {
+                    try? FileManager.default.removeItem(at: url)
+                    try data.write(to: url, options: .atomic)
+                    let controller = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+                    controller.popoverPresentationController?.sourceView = view
+                    controller.popoverPresentationController?.sourceRect = CGRect(x: view.bounds.midX, y: view.bounds.midY, width: 1, height: 1)
+                    present(controller, animated: true)
+                } catch { callback("rivayaOnNativeMessage", "Не удалось подготовить видео") }
+            }
+        case "requestReview":
+            // Apple decides whether the prompt is actually shown (max 3 times a year).
+            if let scene = view.window?.windowScene { AppStore.requestReview(in: scene) }
         default: break
         }
     }

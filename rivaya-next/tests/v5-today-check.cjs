@@ -5,6 +5,11 @@ const server=http.createServer((req,res)=>{const f=path.resolve(root,'.'+(req.ur
  await new Promise(r=>server.listen(0,'127.0.0.1',r));const browser=await chromium.launch();
  try{
   const p=await browser.newPage({viewport:{width:390,height:844},isMobile:true,hasTouch:true});const errors=[];p.on('pageerror',e=>errors.push(e.message));
+  // These browser tests simulate iOS without a native secure-session vault.
+  await p.route('**/backend-config.js',route=>route.fulfill({
+    contentType:'text/javascript',
+    body:'window.RIVAYA_BACKEND={enabled:false,appleEnabled:false};'
+  }));
   await p.addInitScript(()=>{window.RIVAYA_IOS=true});await p.goto('http://127.0.0.1:'+server.address().port);
   if(await p.locator('#onboardingModal.open').count())await p.locator('#finishOnboardingBtn').click();
   await p.evaluate(()=>{const k=todayKey();state.profile.language='ru';state.profile.homeLayout={mode:'simple',simple:['summary','habits'],expanded:['summary','habits']};state.habits=['Готово','Нужно сделать','Ещё одно'].map((name,i)=>({id:'test-'+i,name,freq:'Каждый день',createdAt:k,tracking:'check'}));state.checks={[k+'_test-0']:true};save();currentView='today';render()});

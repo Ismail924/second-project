@@ -8,7 +8,7 @@ settings:
     SWIFT_VERSION: '5.0'
     DEVELOPMENT_TEAM: M2329MH9ZX
     MARKETING_VERSION: '4.5.0'
-    CURRENT_PROJECT_VERSION: '40401'
+    CURRENT_PROJECT_VERSION: '40500'
 targets:
   Rivaya:
     type: application
@@ -47,6 +47,7 @@ targets:
           - UIInterfaceOrientationPortrait
         NSHealthUpdateUsageDescription: RIVAYA использует Здоровье для отображения вашей активности. Приложение только читает шаги и не добавляет и не изменяет данные Здоровья.
         NSHealthShareUsageDescription: RIVAYA читает количество шагов, чтобы показывать вашу ежедневную активность и прогресс.
+        NSPhotoLibraryAddUsageDescription: RIVAYA сохраняет карточку вашей серии в Фото, когда вы выбираете «Сохранить изображение».
     entitlements:
       path: Rivaya.entitlements
       properties:

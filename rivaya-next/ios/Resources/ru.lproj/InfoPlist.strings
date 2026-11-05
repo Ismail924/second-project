@@ -2,3 +2,5 @@
 "NSHealthShareUsageDescription" = "RIVAYA читает количество шагов, чтобы показывать вашу ежедневную активность и прогресс.";
 "NSHealthUpdateUsageDescription" = "RIVAYA использует Здоровье для отображения вашей активности. Приложение только читает шаги и не добавляет и не изменяет данные Здоровья.";
 "CFBundleDisplayName" = "RIVAYA";
+
+"NSPhotoLibraryAddUsageDescription" = "RIVAYA сохраняет карточку вашей серии в Фото, когда вы выбираете «Сохранить изображение».";

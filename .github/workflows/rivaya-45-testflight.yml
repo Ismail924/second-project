@@ -1,7 +1,9 @@
 name: RIVAYA 4.5 — verified internal TestFlight
 on:
   push:
-    branches: ['feature/rivaya-4.5-optional-shared-goals-steps']
+    branches:
+      - feature/rivaya-4.5-optional-shared-goals-steps
+      - release/rivaya-4.5.0-archive-testflight
     paths:
       - 'rivaya-next/ios/project.yml'
       - 'rivaya-next/app/src/main/assets/account-ui.js'

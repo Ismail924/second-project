@@ -6,7 +6,7 @@
   'use strict';
   const U=window.RivayaNextUI,C=window.RivayaNextCore;
   if(!U||!C)return;
-  const VERSION='4.4.1';
+  const VERSION='4.5.0';
   const lang=()=>U.lang();
   const t=(ru,en)=>U.t(ru,en);
   const loc=()=>lang()==='en'?'en-US':'ru-RU';
@@ -62,21 +62,23 @@
     return k;
   }
   // A day "counts" when at least one planned habit was completed. Days without a plan never break a streak.
+  // Streak freeze (4.5): a frozen day neither breaks nor extends any streak.
+  const frozen=k=>!!(state.profile&&state.profile.streakFreezes&&Object.prototype.hasOwnProperty.call(state.profile.streakFreezes,k));
   function streaks(){
     const today=startOfDay(new Date()),start=startOfDay(new Date(earliestStart()+'T12:00:00'));
     const span=Math.min(730,Math.round((today-start)/86400000));
     let best=0,run=0;
     for(let i=span;i>=0;i--){
-      const s=dayScore(addDays(today,-i));
-      if(s.planned===0)continue;
+      const day=addDays(today,-i),s=dayScore(day);
+      if(s.planned===0||frozen(dkey(day)))continue;
       if(s.credit>=1||(s.credit>0&&s.planned===1))run++;
       else if(i!==0)run=0;
       best=Math.max(best,run);
     }
     let current=0;
     for(let i=0;i<=span;i++){
-      const s=dayScore(addDays(today,-i));
-      if(s.planned===0)continue;
+      const day=addDays(today,-i),s=dayScore(day);
+      if(s.planned===0||frozen(dkey(day)))continue;
       if(s.credit>0)current++;
       else if(i===0)continue;
       else break;
@@ -91,7 +93,7 @@
       for(let w=0;w<104;w++){
         const end=addDays(today,-w*7-((today.getDay()+6)%7)+6),begin=addDays(end,-6);
         let done=0,days=0;
-        for(let i=0;i<7;i++){const d=addDays(begin,i);if(d>today||!habitExistsOnDate(h,d))continue;days++;done+=credit(h,dkey(d))>=1?1:0}
+        for(let i=0;i<7;i++){const d=addDays(begin,i);if(d>today||!habitExistsOnDate(h,d)||frozen(dkey(d)))continue;days++;done+=credit(h,dkey(d))>=1?1:0}
         if(!days)break;
         if(done>=Math.min(3,days))n++;else if(w!==0)break;
       }
@@ -101,7 +103,7 @@
     for(let i=0;i<730;i++){
       const d=addDays(today,-i);
       if(!habitExistsOnDate(h,d))break;
-      if(!habitScheduledOnDate(h,d))continue;
+      if(!habitScheduledOnDate(h,d)||frozen(dkey(d)))continue;
       if(credit(h,dkey(d))>=1)n++;
       else if(i===0)continue;
       else break;
@@ -183,7 +185,7 @@
     const now=startOfDay(new Date()),monday=addDays(now,-((now.getDay()+6)%7));
     return `<div class="v5-week" role="group" aria-label="${t('Эта неделя','This week')}">`+Array.from({length:7},(_,i)=>{
       const d=addDays(monday,i),k=dkey(d),future=d>now,s=future?{p:null}:dayScore(d);
-      return `<div class="v5-day ${k===todayKey()?'today':''} ${future?'future':''}" aria-label="${fmtDate(k,{weekday:'long',day:'numeric'})}: ${s.p===null?'—':s.p+'%'}"><span>${new Intl.DateTimeFormat(loc(),{weekday:'short'}).format(d).replace('.','')}</span><div class="v5-day-ring">${ring(s.p||0,34,12,s.p===100?'full':'')}<b>${d.getDate()}</b></div></div>`;
+      return `<div class="v5-day ${k===todayKey()?'today':''} ${future?'future':''} ${frozen(k)?'frozen':''}" data-day="${k}" aria-label="${fmtDate(k,{weekday:'long',day:'numeric'})}: ${s.p===null?'—':s.p+'%'}"><span>${new Intl.DateTimeFormat(loc(),{weekday:'short'}).format(d).replace('.','')}</span><div class="v5-day-ring">${ring(s.p||0,34,12,s.p===100?'full':'')}<b>${d.getDate()}</b></div></div>`;
     }).join('')+'</div>';
   }
   function today(){
@@ -284,7 +286,7 @@
       cols+='<div class="v5-heat-col">';
       for(let d=0;d<7;d++){
         const day=addDays(first,w*7+d),future=day>now,s=future?null:dayScore(day);
-        const lvl=!s||s.p===null?(future?'f':'0'):s.p===0?'0':s.p<34?'1':s.p<67?'2':s.p<100?'3':'4';
+        const lvl=frozen(dkey(day))?'z':!s||s.p===null?(future?'f':'0'):s.p===0?'0':s.p<34?'1':s.p<67?'2':s.p<100?'3':'4';
         cols+=`<i data-l="${lvl}" class="${dkey(day)===todayKey()?'today':''}" title="${fmtDate(dkey(day))}${s&&s.p!==null?': '+s.p+'%':''}"></i>`;
       }
       cols+='</div>';
@@ -474,7 +476,7 @@
   }
 
   /* ---------- English for legacy toasts and confirms ---------- */
-  const EN_MSG={'RIVAYA настроен':'RIVAYA is ready','Вставьте текст резервной копии':'Paste the backup text','Выбери время напоминания':'Choose a reminder time','Выбери хотя бы одно время':'Choose at least one time','Выберите изображение':'Choose an image','Данные восстановлены ✓':'Data restored ✓','Данные очищены':'Data deleted','Напиши название привычки':'Enter a habit name','Напиши название цели':'Enter a goal name','Напиши название этапа':'Enter a step name','Не удалось восстановить: неверный файл':'Restore failed: invalid file','Не удалось восстановить: неверный формат':'Restore failed: invalid format','Не удалось обработать фото':'Could not process the photo','Не удалось отправить тест':'Could not send the test','Не удалось прочитать файл':'Could not read the file','Отправляем тестовое уведомление':'Sending a test notification','Подтвердите доступ к шагам в системном окне':'Confirm step access in the system dialog','Привычка добавлена':'Habit added','Привычка обновлена':'Habit updated','Привычка удалена':'Habit deleted','Резервная копия готова':'Backup is ready','Резервная копия подготовлена':'Backup prepared','Резервная копия скопирована':'Backup copied','Сегодня эта привычка не запланирована':'This habit is not scheduled today','Срок не может быть раньше даты создания привычки':'The end date cannot be before the habit was created','Срок не может быть раньше сегодняшней даты':'The date cannot be in the past','Текст резервной копии выделен':'Backup text selected','Тест доступен в мобильном приложении RIVAYA':'The test works in the RIVAYA mobile app','Укажи сумму пополнения':'Enter the amount','Укажи сумму, которую хочешь накопить':'Enter the amount you want to save','Укажи целевую сумму':'Enter the target amount','Фото профиля обновлено ✓':'Profile photo updated ✓','Фото профиля удалено':'Profile photo removed','Фото слишком большое':'The photo is too large','Цель возвращена в работу':'Goal reopened','Цель обновлена':'Goal updated','Цель по шагам обновлена':'Step goal updated','Цель создана':'Goal created','Цель удалена':'Goal deleted','Шаги доступны в мобильном приложении RIVAYA':'Steps are available in the RIVAYA mobile app','Этап добавлен':'Step added','Этап обновлён':'Step updated','Этап удалён':'Step deleted',"Не удалось сохранить файл":"Could not save the file","Не удалось прочитать резервную копию":"Could not read the backup","Не удалось прочитать шаги Apple Health":"Could not read steps from Apple Health","Не удалось прочитать расписание уведомлений":"Could not read the notification schedule","Уведомления выключены. Разрешите их в настройках iPhone → RIVAYA.":"Notifications are off. Allow them in iPhone Settings \u2192 RIVAYA.","Не удалось запросить разрешение на уведомления":"Could not request notification permission","Разрешите уведомления в настройках iPhone → RIVAYA.":"Allow notifications in iPhone Settings \u2192 RIVAYA.","Тестовое уведомление появится через 3 секунды":"A test notification will appear in 3 seconds","Не удалось создать тестовое уведомление":"Could not create a test notification","Нет активных напоминаний":"No active reminders","Расписание уведомлений обновлено":"Reminder schedule updated",'Удалить все локальные данные RIVAYA?':'Delete all RIVAYA data on this device? This cannot be undone.'};
+  const EN_MSG={'RIVAYA настроен':'RIVAYA is ready','Вставьте текст резервной копии':'Paste the backup text','Выбери время напоминания':'Choose a reminder time','Выбери хотя бы одно время':'Choose at least one time','Выберите изображение':'Choose an image','Данные восстановлены ✓':'Data restored ✓','Данные очищены':'Data deleted','Напиши название привычки':'Enter a habit name','Напиши название цели':'Enter a goal name','Напиши название этапа':'Enter a step name','Не удалось восстановить: неверный файл':'Restore failed: invalid file','Не удалось восстановить: неверный формат':'Restore failed: invalid format','Не удалось обработать фото':'Could not process the photo','Не удалось отправить тест':'Could not send the test','Не удалось прочитать файл':'Could not read the file','Отправляем тестовое уведомление':'Sending a test notification','Подтвердите доступ к шагам в системном окне':'Confirm step access in the system dialog','Привычка добавлена':'Habit added','Привычка обновлена':'Habit updated','Привычка удалена':'Habit deleted','Резервная копия готова':'Backup is ready','Резервная копия подготовлена':'Backup prepared','Резервная копия скопирована':'Backup copied','Сегодня эта привычка не запланирована':'This habit is not scheduled today','Срок не может быть раньше даты создания привычки':'The end date cannot be before the habit was created','Срок не может быть раньше сегодняшней даты':'The date cannot be in the past','Текст резервной копии выделен':'Backup text selected','Тест доступен в мобильном приложении RIVAYA':'The test works in the RIVAYA mobile app','Укажи сумму пополнения':'Enter the amount','Укажи сумму, которую хочешь накопить':'Enter the amount you want to save','Укажи целевую сумму':'Enter the target amount','Фото профиля обновлено ✓':'Profile photo updated ✓','Фото профиля удалено':'Profile photo removed','Фото слишком большое':'The photo is too large','Цель возвращена в работу':'Goal reopened','Цель обновлена':'Goal updated','Цель по шагам обновлена':'Step goal updated','Цель создана':'Goal created','Цель удалена':'Goal deleted','Шаги доступны в мобильном приложении RIVAYA':'Steps are available in the RIVAYA mobile app','Этап добавлен':'Step added','Этап обновлён':'Step updated','Этап удалён':'Step deleted',"Не удалось сохранить файл":"Could not save the file","Не удалось прочитать резервную копию":"Could not read the backup","Не удалось прочитать шаги Apple Health":"Could not read steps from Apple Health","Не удалось прочитать расписание уведомлений":"Could not read the notification schedule","Уведомления выключены. Разрешите их в настройках iPhone → RIVAYA.":"Notifications are off. Allow them in iPhone Settings \u2192 RIVAYA.","Не удалось запросить разрешение на уведомления":"Could not request notification permission","Разрешите уведомления в настройках iPhone → RIVAYA.":"Allow notifications in iPhone Settings \u2192 RIVAYA.","Тестовое уведомление появится через 3 секунды":"A test notification will appear in 3 seconds","Не удалось создать тестовое уведомление":"Could not create a test notification","Нет активных напоминаний":"No active reminders","Расписание уведомлений обновлено":"Reminder schedule updated",'Не удалось подготовить видео':'Could not prepare the video','Удалить все локальные данные RIVAYA?':'Delete all RIVAYA data on this device? This cannot be undone.'};
   const tr=m=>lang()==='en'&&typeof m==='string'&&EN_MSG[m]?EN_MSG[m]:m;
   if(typeof toast==='function'){const baseToast=toast;toast=function(m,...r){return baseToast(tr(m),...r)}}
   const baseStatus=window.rivayaOnNotificationStatus;
@@ -485,6 +487,6 @@
   const baseRender=render;
   let lastView='';
   render=function(){baseRender();const root=document.querySelector('#view > .v5');if(root&&currentView!==lastView)root.classList.add('v5-enter');lastView=currentView;ensureActivityDisclosure();localizeStatic();document.querySelector('.rv-nav-quick')?.setAttribute('aria-label',t('Добавить','Add'))};
-  window.RivayaV5={version:VERSION,plural,streaks,habitStreak,achievements,ui};
+  window.RivayaV5={version:VERSION,plural,streaks,habitStreak,achievements,ui,dayScore,frozen,nDays,colorOf,emojiOf,earliestStart};
   render();
 })();
